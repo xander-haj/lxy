@@ -148,6 +148,18 @@ jobs:
           install -Dm644 "${icon_file}" "${appdir}/${app_id}.png"
           install -Dm644 "${icon_file}" \
             "${appdir}/usr/share/icons/hicolor/128x128/apps/${app_id}.png"
+          rm -f "${appdir}/.DirIcon"
+          ln -s "${app_id}.png" "${appdir}/.DirIcon"
+
+          if ! grep -qx 'Exec=z3r-launcher' "${appdir}/${app_id}.desktop"; then
+            echo "Final AppImage desktop file must use Exec=z3r-launcher."
+            exit 1
+          fi
+
+          if [ "$(readlink "${appdir}/.DirIcon")" != "${app_id}.png" ]; then
+            echo "Final AppImage .DirIcon must be a relative symlink to ${app_id}.png."
+            exit 1
+          fi
 
           webkit_helper_source="/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
           webkit_helper_dest="${appdir}/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"

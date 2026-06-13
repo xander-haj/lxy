@@ -2,7 +2,7 @@
 Type=Application
 Name=Z3R Launcher
 Comment=Set up, customize, randomize, and launch local Z3R projects
-Exec=AppRun
+Exec=z3r-launcher
 Icon=io.github.xander_haj.Z3RLauncher
 Categories=Game;Utility;
 Terminal=false

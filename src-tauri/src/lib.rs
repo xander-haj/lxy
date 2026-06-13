@@ -27,12 +27,17 @@ mod rom_storage;
 mod runtime_info;
 
 #[cfg(target_os = "linux")]
-// Selects X11 first because Steam Deck and AppImage WebKitGTK startup have been more
-// reliable through XWayland than through the Wayland EGL path.
+// Lets non-AppImage Linux packages keep Wayland available when the desktop supports it.
 const LINUX_GDK_BACKEND: &str = "x11,wayland";
+#[cfg(target_os = "linux")]
+// Forces AppImage launches onto X11/XWayland because WebKitGTK EGL startup can abort in VMs.
+const LINUX_APPIMAGE_GDK_BACKEND: &str = "x11";
 #[cfg(target_os = "linux")]
 // Tells GTK-backed file pickers to use the desktop portal path when the package supports it.
 const LINUX_GTK_USE_PORTAL: &str = "1";
+#[cfg(target_os = "linux")]
+// AppImage file pickers should not force the portal path because it can re-enter host GTK modules.
+const LINUX_APPIMAGE_GTK_USE_PORTAL: &str = "0";
 #[cfg(target_os = "linux")]
 // Prevents AppImage builds from loading host GVFS modules against bundled GLib/GIO.
 const LINUX_GIO_MODULE_DIR: &str = "/nonexistent";
@@ -50,7 +55,13 @@ const LINUX_GDK_DISABLE_GL_FLAG: &str = "nogl";
 const LINUX_GDK_RENDERING: &str = "image";
 #[cfg(target_os = "linux")]
 // Makes Mesa choose software rendering if any remaining GL path is reached by WebKitGTK.
-const LINUX_LIBGL_ALWAYS_SOFTWARE: &str = "true";
+const LINUX_LIBGL_ALWAYS_SOFTWARE: &str = "1";
+#[cfg(target_os = "linux")]
+// Selects llvmpipe when Mesa still needs a driver after software rendering is requested.
+const LINUX_MESA_DRIVER_OVERRIDE: &str = "llvmpipe";
+#[cfg(target_os = "linux")]
+// Selects llvmpipe for Gallium-backed Mesa drivers in VirtualBox and other VM sessions.
+const LINUX_GALLIUM_DRIVER: &str = "llvmpipe";
 #[cfg(target_os = "linux")]
 // Disables WebKitGTK accelerated compositing for systems where EGL initialization aborts.
 const LINUX_WEBKIT_DISABLE_COMPOSITING_MODE: &str = "1";
@@ -65,8 +76,15 @@ fn configure_linux_webview_runtime() {
     let flatpak = crate::runtime_info::is_flatpak_runtime();
     let appimage = std::env::var_os("APPIMAGE").is_some() || std::env::var_os("APPDIR").is_some();
 
-    // Prefer X11/XWayland for AppImage runs because Wayland EGL startup is crash-prone here.
-    set_env_if_missing("GDK_BACKEND", LINUX_GDK_BACKEND);
+    // AppImage launches need a stricter backend than Flatpak or distro packages.
+    set_env_if_missing(
+        "GDK_BACKEND",
+        if appimage {
+            LINUX_APPIMAGE_GDK_BACKEND
+        } else {
+            LINUX_GDK_BACKEND
+        },
+    );
 
     if flatpak {
         // Steam Deck/Flatpak file pickers should go through xdg-desktop-portal.
@@ -88,8 +106,11 @@ fn configure_linux_webview_runtime() {
         std::env::remove_var("GTK_MODULES");
         std::env::remove_var("GTK3_MODULES");
         // Keep GDK and Mesa on software/no-GL paths before WebKitGTK creates its display.
+        set_env_if_missing("GTK_USE_PORTAL", LINUX_APPIMAGE_GTK_USE_PORTAL);
         set_env_if_missing("GDK_RENDERING", LINUX_GDK_RENDERING);
         set_env_if_missing("LIBGL_ALWAYS_SOFTWARE", LINUX_LIBGL_ALWAYS_SOFTWARE);
+        set_env_if_missing("MESA_LOADER_DRIVER_OVERRIDE", LINUX_MESA_DRIVER_OVERRIDE);
+        set_env_if_missing("GALLIUM_DRIVER", LINUX_GALLIUM_DRIVER);
         set_comma_env_flag("GDK_DEBUG", LINUX_GDK_DISABLE_GL_FLAG);
     }
 
