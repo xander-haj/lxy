@@ -2,6 +2,9 @@
 set -eu
 
 appdir="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
+generated_apprun="${appdir}/AppRun.tauri"
+
+export APPDIR="${appdir}"
 
 # Adds a comma-separated GTK/GDK flag without duplicating it. The first parameter is the
 # environment variable name, and the second parameter is the flag that must be present.
@@ -40,8 +43,13 @@ done
 
 export PATH="${appdir}/usr/bin:${PATH:-}"
 
-# WebKitGTK helper paths are patched from /usr/... to ././... inside the AppImage,
-# so the process must start with $APPDIR/usr as its working directory.
-cd "${appdir}/usr"
+# Tauri's generated AppRun carries the linuxdeploy runtime setup for GTK/WebKitGTK.
+# The release workflow preserves it before installing this wrapper.
+if [ -x "${generated_apprun}" ]; then
+  exec "${generated_apprun}" "$@"
+fi
 
+# Fallback for manually assembled AppDirs: WebKitGTK helper paths are patched from
+# /usr/... to ././..., so direct payload starts must run from $APPDIR/usr.
+cd "${appdir}/usr"
 exec "./bin/z3r-launcher" "$@"

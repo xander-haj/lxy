@@ -114,6 +114,7 @@ jobs:
 
           app_id="io.github.xander_haj.Z3RLauncher"
           appdir="appimage-work/AppDir"
+          generated_apprun="${appdir}/AppRun.tauri"
           desktop_file="packaging/appimage/${app_id}.desktop"
           icon_file="src-tauri/icons/128x128.png"
 
@@ -134,6 +135,12 @@ jobs:
           find "${appdir}" -maxdepth 1 -name '*.desktop' -exec rm -f {} +
           find "${appdir}/usr/share/applications" -maxdepth 1 -name '*.desktop' -exec rm -f {} +
 
+          if [ ! -x "${appdir}/AppRun" ]; then
+            echo "Tauri AppImage did not contain a generated AppRun to preserve."
+            exit 1
+          fi
+
+          install -Dm755 "${appdir}/AppRun" "${generated_apprun}"
           install -Dm755 packaging/appimage/AppRun "${appdir}/AppRun"
           install -Dm644 "${desktop_file}" "${appdir}/${app_id}.desktop"
           install -Dm644 "${desktop_file}" \
