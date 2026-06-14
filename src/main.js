@@ -1,6 +1,7 @@
-// Launcher bootstrap module. Owns shared state, the Tauri invoker wrapper, view
+// Launcher bootstrap module. Owns shared state, the backend invoker wrapper, view
 // switching, and top-bar button wiring. Per-screen DOM building lives in dedicated
 // modules so this file stays focused on app-wide concerns.
+import { invoke } from "./backend-client.js";
 import { loadManualInstallGuides } from "./manual-guides.js";
 import { connectRandomizerSetup } from "./randomizer-setup.js";
 import { connectProjectCards } from "./project-cards.js";
@@ -15,7 +16,6 @@ import {
   loadStoredClonePath,
   loadStoredScanPaths,
 } from "./scan-path-manager.js";
-const { invoke } = window.__TAURI__.core;
 
 // App-wide mutable state. Each screen module reads from this through the helpers bag
 // so there is exactly one source of truth for the selected project, scan paths, etc.
@@ -97,6 +97,12 @@ const elements = {
   clearLogButton: document.querySelector("#clearLogButton"),
 };
 
+const romFileInput = document.createElement("input");
+romFileInput.type = "file";
+romFileInput.accept = ".sfc";
+romFileInput.hidden = true;
+document.body.append(romFileInput);
+
 // Timestamped activity console entry used by every screen for command output and
 // non-fatal warnings. Keeps the log entries consistent and auto-scrolls to bottom.
 function log(message) {
@@ -105,7 +111,7 @@ function log(message) {
   elements.logOutput.scrollTop = elements.logOutput.scrollHeight;
 }
 
-// Safe Tauri invoker that routes backend errors into the activity log AND re-throws so
+// Safe backend invoker that routes backend errors into the activity log AND re-throws so
 // callers can guard their own UI flow when needed.
 async function call(command, payload = {}) {
   try {
@@ -116,7 +122,7 @@ async function call(command, payload = {}) {
   }
 }
 
-// Opens trusted manual-guide links through Rust so Windows WebView does not swallow anchors.
+// Opens trusted manual-guide links through the backend so browser and packaged app behavior match.
 async function openExternalUrl(url) {
   await call("open_external_url", { url });
 }
@@ -280,7 +286,91 @@ async function refreshRomStatus() {
   elements.scanPathButton.title = status.available ? "" : "Upload an SFC before managing repos.";
 }
 
-// Loads the editable Setup Path JSON so step copy can change without Rust edits.
+async function chooseRomFile() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        multiple: false,
+        types: [
+          {
+            description: "SNES ROM",
+            accept: {
+              "application/octet-stream": [".sfc"],
+            },
+          },
+        ],
+      });
+      return handle.getFile();
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    function finish(file) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      romFileInput.removeEventListener("change", onChange);
+      window.removeEventListener("focus", onFocus);
+      resolve(file);
+    }
+
+    function onChange() {
+      finish(romFileInput.files?.[0] ?? null);
+    }
+
+    function onFocus() {
+      window.setTimeout(() => {
+        if (!romFileInput.files?.length) {
+          finish(null);
+        }
+      }, 200);
+    }
+
+    romFileInput.value = "";
+    romFileInput.addEventListener("change", onChange);
+    window.addEventListener("focus", onFocus);
+    romFileInput.click();
+  });
+}
+
+async function storeSelectedRom() {
+  const file = await chooseRomFile();
+
+  if (!file) {
+    return null;
+  }
+
+  if (!file.name.toLowerCase().endsWith(".sfc")) {
+    throw new Error("Select a .sfc ROM file.");
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  return call("store_rom_upload", {
+    fileName: file.name,
+    dataBase64: bytesToBase64(bytes),
+  });
+}
+
+function bytesToBase64(bytes) {
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  return btoa(binary);
+}
+
+// Loads the editable Setup Path JSON so step copy can change without backend edits.
 async function loadSetupGuidance() {
   try {
     const response = await fetch("./setup-guidance.json");
@@ -346,13 +436,15 @@ elements.uploadRomButton.addEventListener("click", async () => {
       return;
     }
 
-    const status = await call("choose_and_store_rom");
+    const status = await storeSelectedRom();
 
     if (status) {
       log(`SFC stored at ${status.path}`);
       await refreshRomStatus();
       await refreshScan();
     }
+  } catch (error) {
+    log(state.hasStoredRom ? `Could not open SFC folder: ${error}` : `Could not store SFC: ${error}`);
   } finally {
     elements.uploadRomButton.disabled = false;
   }

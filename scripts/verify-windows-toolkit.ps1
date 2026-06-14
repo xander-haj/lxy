@@ -1,8 +1,8 @@
-# Verifies that the Windows toolkit exists before Tauri packages the installer.
+# Verifies that the Windows toolkit exists before packaging the Windows installer.
 # This prevents release assets from being published when bundled-tools/windows only
 # contains the committed placeholder file.
 param(
-  [string]$ToolkitRoot = "src-tauri/bundled-tools/windows",
+  [string]$ToolkitRoot = "bundled-tools/windows",
   [int64]$MinimumBytes = 50000000
 )
 

@@ -1,4 +1,4 @@
-// Connects the top-bar Updates button to the Rust updater. The backend owns GitHub
+// Connects the top-bar Updates button to the Python updater. The backend owns GitHub
 // release checks and installer handoff so WebView network failures cannot block it.
 export function connectLauncherUpdateChecker(helpers) {
   const { elements } = helpers;

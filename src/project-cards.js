@@ -8,7 +8,7 @@ import { escapeHtml, labelStatus } from "./shared-utils.js";
 import { mountAspectRatioWidget } from "./card-aspect-ratio.js";
 
 // Wires up the project-list rendering loop and exposes a `render()` callback the host
-// uses to repaint after any state change. `helpers` carries state, DOM refs, the Tauri
+// uses to repaint after any state change. `helpers` carries state, DOM refs, the backend
 // invoker, the logger, and view-switch callbacks so the module stays free of globals.
 export function connectProjectCards(helpers) {
   return {

@@ -16,7 +16,7 @@ let positionsCache = null;
 
 // Public entry point. container is the tab panel element to render into; mode is
 // "keymap" | "gamepad"; controlsLine is the IniLineSnapshot for the active Controls=
-// line; helpers carries state + the Tauri invoker.
+// line; helpers carries state + the backend invoker.
 export async function renderControllerOverlay(container, mode, controlsLine, helpers) {
   const positions = await loadPositions(helpers);
   if (!positions) {
@@ -168,7 +168,7 @@ function commitInline(context, input) {
 
 // Shared write path used by both edit modes. Updates the slot in the cached 12-value
 // array, recomposes the full Controls = line, and writes it back to zelda3.ini via the
-// existing line-number-addressed Tauri command.
+// existing line-number-addressed backend command.
 async function commitSlotValue(context, newValue) {
   const { slots, index, label, controlsLine, helpers } = context;
   slots[index] = newValue;

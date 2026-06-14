@@ -3,7 +3,7 @@
 const SCAN_PATHS_STORAGE_KEY = "z3r-launcher-scan-paths";
 const CLONE_PATH_STORAGE_KEY = "z3r-launcher-clone-path";
 
-// Loads user-added scan paths from localStorage; Rust prepends the default path at scan time.
+// Loads user-added scan paths from localStorage; the backend prepends the default path at scan time.
 export function loadStoredScanPaths() {
   try {
     const stored = JSON.parse(localStorage.getItem(SCAN_PATHS_STORAGE_KEY) ?? "[]");
@@ -13,7 +13,7 @@ export function loadStoredScanPaths() {
   }
 }
 
-// Loads the optional clone destination override. Null means Rust should use the default root.
+// Loads the optional clone destination override. Null means the backend should use the default root.
 export function loadStoredClonePath() {
   return localStorage.getItem(CLONE_PATH_STORAGE_KEY);
 }

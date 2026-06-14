@@ -60,7 +60,7 @@ function getRandomizerElements() {
   };
 }
 
-// Loads editable Randomizer Setup instructions from JSON so copy changes do not require Rust edits.
+// Loads editable Randomizer Setup instructions from JSON so copy changes do not require backend edits.
 // options contains the screen elements and logger.
 // Returns a promise that settles after the instruction area has been populated.
 async function loadRandomizerGuidance(options) {
@@ -94,7 +94,7 @@ function renderRandomizerGuidance(elements, instructions) {
 }
 
 // Reads randomizer setup metadata from the selected project and paints the instructions/config list.
-// options supplies the selected project path and safe Tauri command wrapper.
+// options supplies the selected project path and safe backend command wrapper.
 // Returns a promise that settles after the screen has been rendered.
 async function refreshRandomizerSetup(options) {
   const { elements, state, call, log } = options;
@@ -115,7 +115,7 @@ async function refreshRandomizerSetup(options) {
 }
 
 // Converts the backend setup report into the visible instructions and config status rows.
-// elements contains the target DOM nodes, and report is the serialized Rust command result.
+// elements contains the target DOM nodes, and report is the serialized backend command result.
 // Returns nothing after replacing the relevant screen content.
 function renderRandomizerReport(elements, report) {
   elements.randomizerStatus.textContent = report.available
@@ -218,7 +218,7 @@ async function restoreVanillaYaml(options) {
 
 // Reads form controls into the backend payload shape, preserving comma-separated exclusions.
 // elements contains the randomizer form controls, and dryRun forces no-write preview mode.
-// Returns a plain object that can be serialized through Tauri invoke.
+// Returns a plain object that can be serialized through backend invoke.
 function readRandomizerForm(elements, dryRun) {
   return {
     mode: elements.randomizerMode.value,
@@ -234,7 +234,7 @@ function readRandomizerForm(elements, dryRun) {
   };
 }
 
-// Trims user-entered text and converts blank form fields to null for Rust Option fields.
+// Trims user-entered text and converts blank form fields to null for optional backend fields.
 // value is the raw input string from a form control.
 // Returns a trimmed string or null when the user left the field empty.
 function cleanText(value) {

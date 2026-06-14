@@ -73,7 +73,7 @@ function renderStep(step, index, projectPath) {
   return section;
 }
 
-// Renders trusted reference links as buttons so Tauri can open them through the native OS.
+// Renders trusted reference links as buttons so the backend can open them through the native OS.
 function renderLinks(links, openExternalUrl) {
   const wrapper = document.createElement("div");
   wrapper.className = "guide-links";

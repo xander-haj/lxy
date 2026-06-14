@@ -1,8 +1,8 @@
-# Downloads and normalizes the Windows toolkit that Tauri bundles as app resources.
+# Downloads and normalizes the Windows toolkit that the launcher bundles as app resources.
 # The release workflow runs this before packaging the Windows installer so users get
 # Git, Python, TCC, and SDL2 without installing those tools separately.
 param(
-  [string]$OutputRoot = "src-tauri/bundled-tools/windows",
+  [string]$OutputRoot = "bundled-tools/windows",
   [string]$GitUrl = "",
   [string]$PythonUrl = "https://www.nuget.org/api/v2/package/python/3.12.7",
   [string]$Sdl2Url = "https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-devel-2.30.11-VC.zip",
@@ -155,7 +155,7 @@ Copy-NormalizedContents -Source $tccExtract -Destination (Join-Path $toolRoot "t
 
 Remove-Item $downloadRoot -Recurse -Force
 
-# Validate the exact files the Rust launcher will look for at runtime.
+# Validate the exact files the Python launcher will look for at runtime.
 $requiredFiles = @(
   "git/cmd/git.exe",
   "python/tools/python.exe",

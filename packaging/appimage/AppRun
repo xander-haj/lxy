@@ -2,56 +2,7 @@
 set -eu
 
 appdir="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
-generated_apprun="${appdir}/AppRun.tauri"
 
 export APPDIR="${appdir}"
-
-# Adds a comma-separated GTK/GDK flag without duplicating it. The first parameter is the
-# environment variable name, and the second parameter is the flag that must be present.
-add_env_flag() {
-  name="$1"
-  flag="$2"
-  eval "value=\${${name}:-}"
-
-  case ",${value}," in
-    *,"${flag}",*) ;;
-    *) value="${value:+${value},}${flag}" ;;
-  esac
-
-  export "${name}=${value}"
-}
-
-export GDK_BACKEND="${GDK_BACKEND:-x11}"
-export GDK_RENDERING="${GDK_RENDERING:-image}"
-add_env_flag GDK_DEBUG nogl
-export GTK_USE_PORTAL="${GTK_USE_PORTAL:-0}"
-export GTK_IM_MODULE="xim"
-unset GTK_MODULES
-unset GTK3_MODULES
-export GIO_USE_VFS="local"
-export GIO_MODULE_DIR="/nonexistent"
-unset GIO_EXTRA_MODULES
-export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
-export MESA_LOADER_DRIVER_OVERRIDE="${MESA_LOADER_DRIVER_OVERRIDE:-llvmpipe}"
-export GALLIUM_DRIVER="${GALLIUM_DRIVER:-llvmpipe}"
-export WEBKIT_DISABLE_COMPOSITING_MODE="${WEBKIT_DISABLE_COMPOSITING_MODE:-1}"
-export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
-
-for lib_dir in "${appdir}/usr/lib" "${appdir}/usr/lib/x86_64-linux-gnu"; do
-  if [ -d "${lib_dir}" ]; then
-    export LD_LIBRARY_PATH="${lib_dir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-  fi
-done
-
 export PATH="${appdir}/usr/bin:${PATH:-}"
-
-# Tauri's generated AppRun carries the linuxdeploy runtime setup for GTK/WebKitGTK.
-# The release workflow preserves it before installing this wrapper.
-if [ -x "${generated_apprun}" ]; then
-  exec "${generated_apprun}" "$@"
-fi
-
-# Fallback for manually assembled AppDirs: WebKitGTK helper paths are patched from
-# /usr/... to ././..., so direct payload starts must run from $APPDIR/usr.
-cd "${appdir}/usr"
-exec "./bin/z3r-launcher" "$@"
+exec "${appdir}/usr/bin/z3r-launcher" "$@"

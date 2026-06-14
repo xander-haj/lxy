@@ -6,8 +6,6 @@ id: io.github.xander_haj.Z3RLauncher
 runtime: org.gnome.Sdk
 runtime-version: '48'
 sdk: org.gnome.Sdk
-sdk-extensions:
-  - org.freedesktop.Sdk.Extension.rust-stable
 command: z3r-launcher
 
 finish-args:
@@ -27,19 +25,16 @@ finish-args:
   - --env=PKG_CONFIG_PATH=/app/lib/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 
 build-options:
-  append-path: /usr/lib/sdk/rust-stable/bin
   build-args:
     - --share=network
-  env:
-    CARGO_HOME: /run/build/z3r-launcher/cargo-home
-    CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
 
 modules:
   - name: z3r-launcher
     buildsystem: simple
     build-commands:
-      - cargo build --release --locked --manifest-path src-tauri/Cargo.toml
-      - install -Dm755 src-tauri/target/release/z3r-launcher /app/bin/z3r-launcher
+      - install -Dm755 packaging/flatpak/z3r-launcher /app/bin/z3r-launcher
+      - mkdir -p /app/share/z3r-launcher
+      - cp -a z3r_launcher src resources bundled-tools /app/share/z3r-launcher/
       - install -Dm644 README.md /app/share/doc/Z3RLauncher/README.md
       - >-
         install -Dm644 packaging/flatpak/io.github.xander_haj.Z3RLauncher.desktop
@@ -48,13 +43,13 @@ modules:
         install -Dm644 packaging/flatpak/io.github.xander_haj.Z3RLauncher.metainfo.xml
         /app/share/metainfo/io.github.xander_haj.Z3RLauncher.metainfo.xml
       - >-
-        install -Dm644 src-tauri/icons/32x32.png
+        install -Dm644 resources/icons/32x32.png
         /app/share/icons/hicolor/32x32/apps/io.github.xander_haj.Z3RLauncher.png
       - >-
-        install -Dm644 src-tauri/icons/128x128.png
+        install -Dm644 resources/icons/128x128.png
         /app/share/icons/hicolor/128x128/apps/io.github.xander_haj.Z3RLauncher.png
       - >-
-        install -Dm644 src-tauri/icons/128x128@2x.png
+        install -Dm644 resources/icons/128x128@2x.png
         /app/share/icons/hicolor/256x256/apps/io.github.xander_haj.Z3RLauncher.png
     sources:
       - type: dir

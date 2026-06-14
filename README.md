@@ -1,151 +1,110 @@
 # Z3R Launcher
 
-Z3R Launcher is a cross-platform desktop launcher for Xander's Z3R fork. It helps users find, clone, set up, build, customize, randomize, and launch local Z3R projects from one place.
+Z3R Launcher is a cross-platform launcher for Xander's Z3R fork. It helps users find,
+clone, set up, build, customize, randomize, and launch local Z3R projects from one place.
 
-Prebuilt installers and packages are provided from the repository's [GitHub Releases tab](https://github.com/xander-haj/lawn/releases). Use those unless you specifically want to build the launcher from source.
+Prebuilt installers and packages are provided from the repository's
+[GitHub Releases tab](https://github.com/xander-haj/lawn/releases). Use those unless you
+specifically want to build the launcher from source.
 
 ## App Overview
 
-The launcher is built with Tauri 2: a plain HTML/CSS/JavaScript frontend in `src/` and a Rust backend in `src-tauri/`.
+The launcher is now Python-only: a plain HTML/CSS/JavaScript frontend in `src/` and a
+standard-library Python backend in `z3r_launcher/`. The Python process serves the UI on
+localhost, opens it in the user's normal browser, and exposes the same command surface the
+frontend uses for scanning, setup actions, INI editing, updates, and launching games.
 
 Main features:
 
 - Scans the launcher folder and user-added repo folders for Z3R builds.
 - Uploads and stores a user-supplied `zelda3.sfc`, then copies it into detected or cloned projects.
 - Clones the default Z3R repo or a custom GitHub fork.
-- Checks project setup state for Git, Python, virtualenv, Python packages, ROM files, SDL2, Make, MSBuild, TCC, and related platform tools.
+- Checks project setup state for Git, Python, virtualenv, Python packages, ROM files, SDL2, Make,
+  MSBuild, TCC, and related platform tools.
 - Runs guided setup actions: create venv, install project requirements, extract assets, and build the game.
 - Launches ready builds.
 - Edits selected `zelda3.ini` settings, including aspect ratio, controls, gamepad settings, and feature toggles.
 - Manages optional feature assets such as MSU packs, sprites, and shaders.
 - Provides a randomizer setup screen for supported Z3R folders.
-- Checks GitHub Releases from the Rust backend and installs launcher updates with the
-  matching platform package instead of opening a browser download page.
+- Checks GitHub Releases from the Python backend and installs launcher updates with the matching platform package.
 
 The launcher does not include a ROM. Users must provide their own legally obtained compatible US `.sfc` file.
 
-## Build From Source
+## Run From Source
 
-Build each desktop package on its target operating system. Cross-compiling Tauri desktop bundles is outside the scope of this project.
+The source checkout does not require Node.js, npm, Rust, Cargo, or Tauri.
 
-### Shared Requirements
+Requirements:
 
-- Git
-- Rust with Cargo, at least Rust `1.77.2`
-- Tauri CLI 2
+- Python 3.10 or newer
+- Git, Python venv support, Make/SDL2, or Windows build tools only if you want the launcher to build Z3R projects
 
-Install the Tauri CLI:
-
-```sh
-cargo install tauri-cli --version "^2"
-```
-
-This project does not require Node.js or npm for normal builds. The frontend is static and Tauri packages `src/` directly through `src-tauri/tauri.conf.json`.
-
-### Build Command
-
-Clone the repo, then build from the repository root:
+Run from the repository root:
 
 ```sh
-git clone https://github.com/xander-haj/lawn.git
-cd lawn
-cargo tauri build
+python3 -m z3r_launcher
 ```
 
-Development mode:
+The command starts a localhost server and opens the launcher in your default browser.
+
+## Build Packages
+
+Build each desktop package on its target operating system. PyInstaller packages the Python runtime
+for AppImage and Windows; Flatpak uses the GNOME SDK runtime Python.
+
+### Linux AppImage
+
+The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-cargo tauri dev
+python3 -m pip install --upgrade pyinstaller
+python3 -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
-Build output is written under `src-tauri/target/release/bundle/`.
+The workflow then assembles an AppDir with:
 
-## Windows Build
+- `dist/z3r-launcher`
+- `packaging/appimage/AppRun`
+- `packaging/appimage/io.github.xander_haj.Z3RLauncher.desktop`
+- `resources/icons/128x128.png`
 
-Install:
+and emits `Z3R-Launcher-linux-x64.AppImage`.
 
-- Rust with the MSVC toolchain
-- Microsoft C++ Build Tools with the `Desktop development with C++` workload
-- Microsoft Edge WebView2 Runtime, if it is not already installed
-- VBSCRIPT optional Windows feature, if building MSI packages
+### Flatpak
 
-Then run from Windows Terminal or a bash-style shell:
+The Flatpak manifest is `packaging/flatpak/io.github.xander_haj.Z3RLauncher.yml`.
+It installs the Python package, static UI, resources, and bundled-tool metadata into
+`/app/share/z3r-launcher`, then runs `/usr/bin/python3 -m z3r_launcher`.
 
-```bash
-cargo install tauri-cli --version "^2"
-cargo tauri build
-```
+The Flatpak uses the GNOME SDK runtime so Steam Deck and other Flatpak users can run the
+launcher-managed Git, Python, venv, pip, SDL2, and Make build path inside the sandbox instead of
+installing those tools on the host OS. The Flatpak can work in the home folder and Steam Deck
+removable-media paths under `/run/media`.
 
-### Windows Release Toolkit
+### Windows Setup Exe
 
-The Windows setup exe always bundles portable Git, Python, TCC, and SDL2 from
-`src-tauri/bundled-tools/windows/`. The release workflow prepares that toolkit, verifies the required files,
-and then runs the Tauri build so the setup exe cannot be published without the bundled tools.
+Windows releases bundle the launcher executable plus the project-build toolkit. Prepare and verify
+the toolkit first:
 
-To populate or refresh that toolkit locally before a Windows release, install 7-Zip and run from Windows
-Terminal or a bash-style shell:
-
-```bash
+```powershell
 powershell.exe -ExecutionPolicy Bypass -File ./scripts/prepare-windows-toolkit.ps1
 powershell.exe -ExecutionPolicy Bypass -File ./scripts/verify-windows-toolkit.ps1
-cargo tauri build
 ```
 
-The generated files live under `src-tauri/bundled-tools/windows/`; the committed source tree only keeps the
-placeholder file.
+The toolkit is generated under `bundled-tools/windows/` and includes portable Git, Python, TCC,
+and SDL2. It is packaged into the PyInstaller executable so users can clone and build without
+installing those dependencies separately.
 
-## macOS Build
+Build the executable and setup package:
 
-Install:
-
-- Xcode Command Line Tools for desktop builds
-- Rust with Cargo
-- Tauri CLI 2
-
-Install Apple's command line tools:
-
-```sh
-xcode-select --install
+```powershell
+python -m pip install --upgrade pyinstaller
+python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
+copy dist\z3r-launcher.exe dist\Z3R-Launcher-windows-x64.exe
+makensis.exe packaging\windows\z3r-launcher.nsi
 ```
 
-Then build:
-
-```sh
-cargo install tauri-cli --version "^2"
-cargo tauri build
-```
-
-Local builds are unsigned unless you configure Apple signing and notarization outside this repo.
-
-## Linux Build
-
-Install Rust, Cargo, Tauri CLI 2, and your distribution's Tauri system dependencies.
-
-For Debian or Ubuntu:
-
-```sh
-sudo apt update
-sudo apt install libwebkit2gtk-4.1-dev \
-  build-essential \
-  curl \
-  wget \
-  file \
-  libxdo-dev \
-  libssl-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev
-```
-
-Then build:
-
-```sh
-cargo install tauri-cli --version "^2"
-cargo tauri build
-```
-
-For Arch, Fedora, openSUSE, Alpine, NixOS, and other distributions, use the current Tauri 2 prerequisites page for the matching package names:
-
-https://v2.tauri.app/start/prerequisites/
+The NSIS output is `dist/Z3R-Launcher-windows-x64-setup.exe`.
 
 ## Dependencies for Building Z3R Projects Inside the Launcher
 
@@ -170,19 +129,14 @@ Linux:
 - SDL2 development files, for example `sudo apt-get install libsdl2-dev` on Debian/Ubuntu
 - `python3-venv` on Debian/Ubuntu if Python cannot create a virtual environment
 
-Prebuilt Flatpak releases use the GNOME SDK runtime so Steam Deck and other Flatpak users can run the
-launcher-managed Git, Python, venv, pip, SDL2, and Make build path inside the sandbox instead of installing
-those tools on the host OS. The Flatpak can work in the home folder and Steam Deck removable-media paths
-under `/run/media`.
-
 Windows:
 
 - Visual Studio Build Tools with `Desktop development with C++` for the MSBuild route, or
 - TCC and SDL2 for the lightweight TCC route
 - Windows Terminal or another terminal app for running setup commands
 
-Prebuilt Windows releases include bundled portable Git, Python, TCC, and SDL2 for the launcher-managed setup path.
-MSBuild is still required if you choose the Visual Studio build route.
+Prebuilt Windows releases include bundled portable Git, Python, TCC, and SDL2 for the
+launcher-managed setup path. MSBuild is still required if you choose the Visual Studio build route.
 
 ## Launcher Updates
 
@@ -191,7 +145,6 @@ When a newer release exists, the launcher downloads and starts the matching pack
 
 - Windows uses `Z3R-Launcher-windows-x64-setup.exe`, preserving the required bundled Git, Python, SDL2,
   and TCC toolkit.
-- macOS uses the universal DMG and replaces the running `.app` bundle after the launcher closes.
 - AppImage releases replace the running AppImage file and relaunch it.
 - Flatpak releases download the `.flatpak` bundle and run the host Flatpak install-or-update command.
 

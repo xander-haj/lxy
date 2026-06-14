@@ -5,7 +5,7 @@
 //
 // This module knows NOTHING about which tab it is rendering into. Callers (the KeyMap
 // and Gamepad tab builders inside controls-screen.js) just pass the IniLineSnapshot
-// records and a Tauri-call helper.
+// records and a backend-call helper.
 
 // Imports: shared HTML escape util.
 import { escapeHtml } from "./shared-utils.js";
