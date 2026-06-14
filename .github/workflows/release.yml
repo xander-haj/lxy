@@ -26,9 +26,21 @@ jobs:
           - name: Linux x64
             platform: ubuntu-22.04
             artifact_name: linux-x64
+            family: linux
           - name: Windows x64
             platform: windows-2022
             artifact_name: windows-x64
+            family: windows
+          - name: macOS Intel
+            platform: macos-15-intel
+            artifact_name: macos-intel
+            family: macos
+            dmg_name: Z3R-Launcher-macos-intel.dmg
+          - name: macOS Apple Silicon
+            platform: macos-15
+            artifact_name: macos-apple-silicon
+            family: macos
+            dmg_name: Z3R-Launcher-macos-apple-silicon.dmg
 
     runs-on: ${{ matrix.platform }}
 
@@ -63,7 +75,7 @@ jobs:
           PY
 
       - name: Install Linux packaging dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.family == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -72,18 +84,18 @@ jobs:
             wget
 
       - name: Install Windows packaging dependencies
-        if: matrix.platform == 'windows-2022'
+        if: matrix.family == 'windows'
         shell: pwsh
         run: choco install nsis -y
 
       - name: Prepare bundled Windows toolkit
-        if: matrix.platform == 'windows-2022'
+        if: matrix.family == 'windows'
         shell: pwsh
         timeout-minutes: 45
         run: ./scripts/prepare-windows-toolkit.ps1
 
       - name: Verify bundled Windows toolkit
-        if: matrix.platform == 'windows-2022'
+        if: matrix.family == 'windows'
         shell: pwsh
         run: ./scripts/verify-windows-toolkit.ps1
 
@@ -96,7 +108,7 @@ jobs:
         run: python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 
       - name: Build Linux AppImage
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.family == 'linux'
         shell: bash
         env:
           APPIMAGETOOL_URL: >-
@@ -138,10 +150,37 @@ jobs:
           tar -czf dist/Z3R-Launcher-linux-x64.AppImage.tar.gz \
             -C dist Z3R-Launcher-linux-x64.AppImage
 
+      - name: Build macOS DMG
+        if: matrix.family == 'macos'
+        shell: bash
+        env:
+          DMG_NAME: ${{ matrix.dmg_name }}
+        run: |
+          app_path="dist/Z3R Launcher.app"
+          dmg_root="dmg-root"
+
+          if [ ! -d "${app_path}" ]; then
+            echo "PyInstaller did not create ${app_path}."
+            find dist -maxdepth 3 -print
+            exit 1
+          fi
+
+          rm -rf "${dmg_root}"
+          mkdir -p "${dmg_root}"
+          ditto "${app_path}" "${dmg_root}/Z3R Launcher.app"
+          ln -s /Applications "${dmg_root}/Applications"
+          hdiutil create \
+            -volname "Z3R Launcher" \
+            -srcfolder "${dmg_root}" \
+            -ov \
+            -format UDZO \
+            "dist/${DMG_NAME}"
+
       - name: Build Windows setup exe
-        if: matrix.platform == 'windows-2022'
+        if: matrix.family == 'windows'
         shell: pwsh
         run: |
+          $repoRoot = (Get-Location).Path
           Copy-Item -Path dist\z3r-launcher.exe -Destination dist\Z3R-Launcher-windows-x64.exe -Force
           $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
           if ($null -eq $makensis) {
@@ -149,23 +188,26 @@ jobs:
             if (!(Test-Path $candidate)) {
               throw "makensis.exe was not found after installing NSIS."
             }
-            & $candidate packaging\windows\z3r-launcher.nsi
+            & $candidate "/DREPO_ROOT=$repoRoot" packaging\windows\z3r-launcher.nsi
           } else {
-            & $makensis.Source packaging\windows\z3r-launcher.nsi
+            & $makensis.Source "/DREPO_ROOT=$repoRoot" packaging\windows\z3r-launcher.nsi
           }
 
       - name: Collect release assets
         shell: bash
         run: |
           mkdir -p release-dist
-          case "${{ matrix.platform }}" in
-            ubuntu-22.04)
+          case "${{ matrix.family }}" in
+            linux)
               cp dist/Z3R-Launcher-linux-x64.AppImage release-dist/
               cp dist/Z3R-Launcher-linux-x64.AppImage.tar.gz release-dist/
               ;;
-            windows-2022)
+            windows)
               cp dist/Z3R-Launcher-windows-x64.exe release-dist/
               cp dist/Z3R-Launcher-windows-x64-setup.exe release-dist/
+              ;;
+            macos)
+              cp "dist/${{ matrix.dmg_name }}" release-dist/
               ;;
           esac
 

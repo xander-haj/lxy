@@ -50,7 +50,7 @@ The command starts a localhost server and opens the launcher in your default bro
 ## Build Packages
 
 Build each desktop package on its target operating system. PyInstaller packages the Python runtime
-for AppImage and Windows; Flatpak uses the GNOME SDK runtime Python.
+for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 
 ### Linux AppImage
 
@@ -69,6 +69,17 @@ The workflow then assembles an AppDir with:
 - `resources/icons/128x128.png`
 
 and emits `Z3R-Launcher-linux-x64.AppImage`.
+
+### macOS DMGs
+
+macOS releases are built natively on GitHub's Intel and Apple Silicon macOS runners:
+
+- Intel: `Z3R-Launcher-macos-intel.dmg`
+- Apple Silicon: `Z3R-Launcher-macos-apple-silicon.dmg`
+
+The PyInstaller spec creates `dist/Z3R Launcher.app`. The release workflow copies that app bundle
+into a DMG staging folder with an `/Applications` shortcut, then creates the compressed DMG with
+`hdiutil`.
 
 ### Flatpak
 
@@ -101,7 +112,8 @@ Build the executable and setup package:
 python -m pip install --upgrade pyinstaller
 python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 copy dist\z3r-launcher.exe dist\Z3R-Launcher-windows-x64.exe
-makensis.exe packaging\windows\z3r-launcher.nsi
+$repoRoot = (Get-Location).Path
+makensis.exe "/DREPO_ROOT=$repoRoot" packaging\windows\z3r-launcher.nsi
 ```
 
 The NSIS output is `dist/Z3R-Launcher-windows-x64-setup.exe`.
@@ -145,6 +157,8 @@ When a newer release exists, the launcher downloads and starts the matching pack
 
 - Windows uses `Z3R-Launcher-windows-x64-setup.exe`, preserving the required bundled Git, Python, SDL2,
   and TCC toolkit.
+- macOS uses `Z3R-Launcher-macos-intel.dmg` on Intel Macs and
+  `Z3R-Launcher-macos-apple-silicon.dmg` on Apple Silicon Macs.
 - AppImage releases replace the running AppImage file and relaunch it.
 - Flatpak releases download the `.flatpak` bundle and run the host Flatpak install-or-update command.
 
