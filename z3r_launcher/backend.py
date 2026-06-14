@@ -1023,7 +1023,7 @@ class LauncherBackend:
 
     def install_macos_update(self, release: dict[str, Any], update_dir: Path) -> dict[str, Any]:
         bundle_path = current_macos_bundle_path()
-        asset = exact_asset(release, "Z3R-Launcher-macos-universal.dmg")
+        asset = first_release_asset(release, [macos_update_asset_name(), "Z3R-Launcher-macos-universal.dmg"])
         dmg_path = download_release_asset(asset, update_dir)
         script_path = update_dir / "apply-macos-update.sh"
         mount_path = update_dir / "macos-dmg-mount"
@@ -2172,6 +2172,24 @@ def exact_asset(release: dict[str, Any], name: str) -> dict[str, Any]:
             return asset
     available = ", ".join(asset.get("name", "") for asset in release.get("assets", []))
     raise LauncherError(f"Release {release.get('tag_name')} does not include required update asset {name}. Available assets: {available}.")
+
+
+def first_release_asset(release: dict[str, Any], names: list[str]) -> dict[str, Any]:
+    assets = release.get("assets", [])
+    for name in names:
+        for asset in assets:
+            if asset.get("name") == name:
+                return asset
+    available = ", ".join(asset.get("name", "") for asset in release.get("assets", []))
+    expected = ", ".join(names)
+    raise LauncherError(f"Release {release.get('tag_name')} does not include a required update asset. Expected one of: {expected}. Available assets: {available}.")
+
+
+def macos_update_asset_name() -> str:
+    machine = platform.machine().lower()
+    if machine in ("arm64", "aarch64"):
+        return "Z3R-Launcher-macos-apple-silicon.dmg"
+    return "Z3R-Launcher-macos-intel.dmg"
 
 
 def download_url_to_file(url: str, destination: Path, github_api: bool) -> None:

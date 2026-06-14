@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
+import sys
 
 
 root = Path.cwd()
@@ -8,7 +9,12 @@ datas = [
     (str(root / "resources"), "resources"),
     (str(root / "bundled-tools"), "bundled-tools"),
 ]
-icon = root / "resources" / "icons" / "icon.ico"
+if sys.platform == "darwin":
+    icon = root / "resources" / "icons" / "icon.icns"
+elif sys.platform == "win32":
+    icon = root / "resources" / "icons" / "icon.ico"
+else:
+    icon = None
 
 a = Analysis(
     [str(root / "packaging" / "pyinstaller" / "z3r_launcher_entry.py")],
@@ -44,5 +50,13 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(icon) if icon.is_file() else None,
+    icon=str(icon) if icon and icon.is_file() else None,
 )
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="Z3R Launcher.app",
+        icon=str(icon) if icon and icon.is_file() else None,
+        bundle_identifier="io.github.xander_haj.Z3RLauncher",
+    )

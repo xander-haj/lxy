@@ -5,9 +5,13 @@ RequestExecutionLevel user
 !define COMPANY_NAME "xander-haj"
 !define APP_EXE "z3r-launcher.exe"
 !define APP_ID "io.github.xander_haj.Z3RLauncher"
+!ifndef REPO_ROOT
+!define REPO_ROOT "."
+!endif
+!define DIST_DIR "${REPO_ROOT}\dist"
 
 Name "${APP_NAME}"
-OutFile "dist\Z3R-Launcher-windows-x64-setup.exe"
+OutFile "${DIST_DIR}\Z3R-Launcher-windows-x64-setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\Z3R Launcher"
 InstallDirRegKey HKCU "Software\${APP_ID}" "InstallDir"
 
@@ -19,7 +23,7 @@ VIAddVersionKey "FileVersion" "0.1.0.0"
 
 Section "Install"
   SetOutPath "$INSTDIR"
-  File "dist\${APP_EXE}"
+  File /oname=${APP_EXE} "${DIST_DIR}\${APP_EXE}"
   WriteRegStr HKCU "Software\${APP_ID}" "InstallDir" "$INSTDIR"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
