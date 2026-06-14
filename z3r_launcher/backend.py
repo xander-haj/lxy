@@ -34,6 +34,16 @@ SPRITES_DIR = "sprites-gfx"
 SHADERS_DIR = "glsl-shaders"
 STORED_ROM_NAME = "zelda3.sfc"
 FLATPAK_INFO_PATH = Path("/.flatpak-info")
+APPIMAGE_ENV_KEYS = ("APPDIR", "APPIMAGE", "ARGV0", "OWD", "LD_LIBRARY_PATH")
+PYTHON_CHILD_ENV_KEYS = (
+    "PYTHONHOME",
+    "PYTHONPATH",
+    "PYTHONEXECUTABLE",
+    "PYTHONSTARTUP",
+    "PYTHONUSERBASE",
+    "VIRTUAL_ENV",
+    "VIRTUAL_ENV_PROMPT",
+)
 
 
 class LauncherError(Exception):
@@ -233,14 +243,36 @@ def macos_search_paths() -> list[Path]:
     return unique
 
 
-def command_env(remove_appimage: bool = False) -> dict[str, str]:
+def command_env(remove_appimage: bool | None = None, isolate_python: bool = True) -> dict[str, str]:
     env = os.environ.copy()
     if is_macos():
         env["PATH"] = os.pathsep.join(str(path) for path in macos_search_paths())
+    if remove_appimage is None:
+        remove_appimage = is_linux()
     if remove_appimage:
-        for key in ("APPDIR", "APPIMAGE", "ARGV0", "OWD", "LD_LIBRARY_PATH"):
+        sanitize_appimage_env(env)
+    if isolate_python:
+        for key in PYTHON_CHILD_ENV_KEYS:
             env.pop(key, None)
     return env
+
+
+def sanitize_appimage_env(env: dict[str, str]) -> None:
+    appdir = env.get("APPDIR")
+    original_library_path = env.pop("LD_LIBRARY_PATH_ORIG", None)
+    if appdir and env.get("PATH"):
+        appdir_path = Path(appdir)
+        path_entries = []
+        for entry in env["PATH"].split(os.pathsep):
+            entry_path = Path(entry)
+            if entry_path.is_absolute() and entry_path.is_relative_to(appdir_path):
+                continue
+            path_entries.append(entry)
+        env["PATH"] = os.pathsep.join(path_entries)
+    for key in APPIMAGE_ENV_KEYS:
+        env.pop(key, None)
+    if original_library_path:
+        env["LD_LIBRARY_PATH"] = original_library_path
 
 
 def resolve_program(program: str) -> str:
@@ -259,7 +291,7 @@ def run_process(
     cwd: Path | None = None,
     check: bool = False,
     capture: bool = True,
-    remove_appimage_env: bool = False,
+    remove_appimage_env: bool | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     command = [resolve_program(program), *map(str, args)]
     completed = subprocess.run(
@@ -347,10 +379,10 @@ def open_external_url(url: str) -> None:
         raise LauncherError("Only http and https documentation links can be opened.")
 
     if is_windows():
-        subprocess.Popen(["rundll32", "url.dll,FileProtocolHandler", url], stdin=subprocess.DEVNULL)
+        subprocess.Popen(["rundll32", "url.dll,FileProtocolHandler", url], stdin=subprocess.DEVNULL, env=command_env())
         return
     if is_macos():
-        subprocess.Popen(["open", url], stdin=subprocess.DEVNULL)
+        subprocess.Popen(["open", url], stdin=subprocess.DEVNULL, env=command_env())
         return
 
     opener = linux_host_program_path("xdg-open") or "xdg-open"
@@ -640,7 +672,13 @@ class LauncherBackend:
         python = venv_python(project / ".venv") or venv_python(project / "venv")
         if not python:
             raise LauncherError("Create a venv before installing dependencies.")
-        return run_command(display_path(python), ["-m", "pip", "install", "-r", "requirements.txt"], project, "Python dependencies installed.")
+        requirements = project / "requirements.txt"
+        if not requirements.is_file():
+            raise LauncherError(f"The selected project does not contain requirements.txt: {display_path(requirements)}")
+        ssl_check = python_ssl_check(display_path(python), project)
+        if not ssl_check["ok"]:
+            return ssl_check
+        return run_command(display_path(python), ["-m", "pip", "install", "-r", display_path(requirements)], project, "Python dependencies installed.")
 
     def extract_assets(self, project_path: str) -> dict[str, Any]:
         return self.extract_assets_with_route(project_path, "automatic")
@@ -1013,7 +1051,7 @@ class LauncherBackend:
             str(relaunch_path),
             "-Log",
             str(log_path),
-        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
         self.schedule_exit()
         return action_result(
             True,
@@ -1040,7 +1078,7 @@ class LauncherBackend:
             str(bundle_path),
             app_name,
             str(log_path),
-        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
         self.schedule_exit()
         return action_result(True, f"Launcher update {release['tag_name']} downloaded. The launcher will close, replace the app bundle, and reopen.", f"Updater log: {display_path(log_path)}")
 
@@ -1076,7 +1114,7 @@ class LauncherBackend:
             str(downloaded_appimage),
             str(current_appimage),
             str(log_path),
-        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
         self.schedule_exit()
         return action_result(True, f"Launcher update {release['tag_name']} downloaded. The launcher will close, replace the AppImage, and reopen.", f"Updater log: {display_path(log_path)}")
 
@@ -1248,6 +1286,25 @@ def unknown_check(id_value: str, label: str, detail: str) -> dict[str, str]:
     return {"id": id_value, "label": label, "state": "unknown", "detail": detail}
 
 
+def python_ssl_check(program: str, cwd: Path | None = None) -> dict[str, Any]:
+    try:
+        output = run_process(program, ["-c", "import ssl; print(ssl.OPENSSL_VERSION)"], cwd=cwd, capture=True)
+    except OSError as error:
+        raise LauncherError(f"Could not run {program}: {error}") from error
+    stdout = decode_output(output.stdout)
+    stderr = decode_output(output.stderr)
+    if output.returncode == 0:
+        detail = stdout.strip()
+        message = f"Python SSL support is available ({detail})." if detail else "Python SSL support is available."
+        return action_result(True, message, stdout, stderr)
+    return action_result(
+        False,
+        "The selected Python cannot import ssl, so pip cannot download HTTPS packages. Recreate the venv after installing a Python build with SSL support.",
+        stdout,
+        stderr,
+    )
+
+
 def check_git() -> dict[str, str]:
     if is_windows():
         path = bundled_git()
@@ -1267,6 +1324,9 @@ def check_python() -> dict[str, str]:
     for program, args in commands:
         check = check_command("python", program, "Python", args, "Required for asset extraction and venv setup.")
         if check["state"] == "ok":
+            ssl_check = python_ssl_check(program)
+            if not ssl_check["ok"]:
+                return missing_check("python", "Python", ssl_check["message"])
             return check
     return missing_check("python", "Python", "Python was not found on PATH.")
 
@@ -1292,6 +1352,9 @@ def check_python_dependencies(project_path: Path | None) -> dict[str, str]:
     python = venv_python(project_path / ".venv") or venv_python(project_path / "venv")
     if not python:
         return missing_check("python-dependencies", "Python dependencies", "Create a venv before installing or checking Python requirements.")
+    ssl_check = python_ssl_check(display_path(python), project_path)
+    if not ssl_check["ok"]:
+        return missing_check("python-dependencies", "Python dependencies", ssl_check["message"])
     return check_command("python-dependencies", display_path(python), "Python dependencies", ["-c", "import PIL, yaml"], "Install dependencies with the venv before extracting assets.")
 
 
@@ -2273,7 +2336,7 @@ def spawn_flatpak_relaunch() -> None:
         "z3r-launcher-flatpak-relaunch",
         str(os.getpid()),
         APP_ID,
-    ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
 
 
 def current_appimage_path() -> Path:
@@ -2436,7 +2499,14 @@ def pick_file(title: str, filters: list[tuple[str, str]]) -> str | None:
 def run_picker_commands(commands: list[list[str]]) -> str | None:
     for command in commands:
         try:
-            output = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            output = subprocess.run(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=command_env(),
+                check=False,
+            )
         except OSError:
             continue
         if output.returncode == 0:
