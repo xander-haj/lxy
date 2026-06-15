@@ -8,13 +8,12 @@ import sys
 import threading
 import time
 import urllib.parse
-import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from .backend import LauncherBackend, LauncherError, static_dir
+from .backend import LauncherBackend, LauncherError, open_external_url, static_dir
 
 
 HEARTBEAT_TIMEOUT_SECONDS = 45
@@ -218,7 +217,10 @@ def main() -> None:
     url = f"http://{host}:{port}/?token={urllib.parse.quote(token)}"
 
     if os.environ.get("Z3R_LAUNCHER_NO_BROWSER") != "1":
-        webbrowser.open(url)
+        try:
+            open_external_url(url)
+        except LauncherError as error:
+            print(f"Could not open browser automatically: {error}", file=sys.stderr)
 
     print(f"Z3R Launcher is running at {url}", file=sys.stderr)
     try:

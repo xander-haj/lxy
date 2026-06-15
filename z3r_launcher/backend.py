@@ -14,7 +14,6 @@ import threading
 import time
 import urllib.error
 import urllib.request
-import webbrowser
 from pathlib import Path
 from typing import Any, Callable
 
