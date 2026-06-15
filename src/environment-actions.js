@@ -13,6 +13,9 @@ export function updateEnvironmentActions(elements, checks, options = {}) {
   // Build assets invokes restool.py --extract-from-rom, which fails without zelda3.sfc in the project root.
   const romReady = checkReady(checks, "rom");
   const windowsReady = checks.some((check) => check.id === "msbuild" || check.id === "tcc");
+  const unixBuildIds = ["make", "c-compiler", "sdl2-dev"];
+  const hasUnixBuildChecks = checks.some((check) => unixBuildIds.includes(check.id));
+  const unixBuildReady = !hasUnixBuildChecks || checksReady(checks, unixBuildIds);
   const msbuildReady = checkReady(checks, "msbuild");
   const tccReady = checkReady(checks, "tcc");
   const baseBuildReady = pythonReady && venvReady && dependenciesReady && romReady;
@@ -25,7 +28,7 @@ export function updateEnvironmentActions(elements, checks, options = {}) {
     setupBlocked || venvFailureBlocksDownstream || !pythonReady || !venvReady;
   elements.extractButton.classList.toggle("hidden", windowsReady);
   elements.extractButton.disabled =
-    setupBlocked || venvFailureBlocksDownstream || dependencyFailureBlocksBuild || !baseBuildReady;
+    setupBlocked || venvFailureBlocksDownstream || dependencyFailureBlocksBuild || !baseBuildReady || !unixBuildReady;
   elements.extractVisualStudioButton.classList.toggle("hidden", !windowsReady || !msbuildReady);
   elements.extractVisualStudioButton.disabled =
     setupBlocked || venvFailureBlocksDownstream || dependencyFailureBlocksBuild || !baseBuildReady || !msbuildReady;

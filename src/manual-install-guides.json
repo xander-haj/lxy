@@ -63,6 +63,27 @@
         }
       ]
     },
+    "c-compiler": {
+      "title": "Install a C compiler on macOS",
+      "meta": "Missing C compiler",
+      "summary": "Z3R needs clang or another C compiler to build the native executable.",
+      "steps": [
+        {
+          "title": "Install Apple command line tools",
+          "text": "Open Terminal and run `xcode-select --install`. Apple's tools include clang and the cc compatibility command."
+        },
+        {
+          "title": "Recheck the compiler",
+          "text": "After installation, run `clang --version` or return to the launcher and press Run Checks."
+        }
+      ],
+      "links": [
+        {
+          "label": "Apple developer tools",
+          "url": "https://developer.apple.com/xcode/resources/"
+        }
+      ]
+    },
     "sdl2-dev": {
       "title": "Install SDL2 development files on macOS",
       "meta": "Missing SDL2",
@@ -298,6 +319,35 @@
         {
           "label": "GNU Make",
           "url": "https://www.gnu.org/software/make/"
+        }
+      ]
+    },
+    "c-compiler": {
+      "title": "Install a C compiler on Linux",
+      "meta": "Missing C compiler",
+      "summary": "Z3R needs gcc or clang to build the native executable. Some SteamOS/Steam Deck environments include SDL2 and Make but do not provide a cc compiler command.",
+      "steps": [
+        {
+          "title": "Install build tools",
+          "text": "On Debian/Ubuntu or apt-based systems, install `build-essential`. On Arch-based systems, install a compiler package such as `gcc` or the `base-devel` group."
+        },
+        {
+          "title": "Steam Deck note",
+          "text": "SteamOS may not include a host compiler for AppImage-launched builds. If the OS cannot provide gcc or clang, use the Flatpak launcher build path or install build tools in a developer environment before running the AppImage."
+        },
+        {
+          "title": "Run checks again",
+          "text": "Confirm `gcc --version` or `clang --version`, then return to the launcher."
+        }
+      ],
+      "links": [
+        {
+          "label": "GCC",
+          "url": "https://gcc.gnu.org/"
+        },
+        {
+          "label": "LLVM clang",
+          "url": "https://clang.llvm.org/"
         }
       ]
     },

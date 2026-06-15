@@ -132,12 +132,12 @@ All platforms:
 
 macOS:
 
-- Xcode Command Line Tools for `make`
+- Xcode Command Line Tools for `make` and `clang`
 - SDL2 development files, for example `brew install sdl2`
 
 Linux:
 
-- `make` and a C/C++ build toolchain
+- `make` and a C compiler available as `cc`, `gcc`, or `clang`
 - SDL2 development files, for example `sudo apt-get install libsdl2-dev` on Debian/Ubuntu
 - `python3-venv` on Debian/Ubuntu if Python cannot create a virtual environment
 

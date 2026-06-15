@@ -33,6 +33,7 @@ SPRITES_DIR = "sprites-gfx"
 SHADERS_DIR = "glsl-shaders"
 STORED_ROM_NAME = "zelda3.sfc"
 FLATPAK_INFO_PATH = Path("/.flatpak-info")
+C_COMPILER_CANDIDATES = ("cc", "gcc", "clang")
 APPIMAGE_ENV_KEYS = ("APPDIR", "APPIMAGE", "ARGV0", "OWD", "LD_LIBRARY_PATH")
 PYTHON_CHILD_ENV_KEYS = (
     "PYTHONHOME",
@@ -1026,7 +1027,10 @@ class LauncherBackend:
                 return run_tcc_build(project)
             return run_visual_studio_build(project)
         jobs = str(os.cpu_count() or 2)
-        return run_command("make", [f"-j{jobs}"], project, "Build complete.")
+        compiler = c_compiler_program()
+        if not compiler:
+            return action_result(False, "No C compiler was found. Install gcc or clang before building Z3R on Linux/macOS.")
+        return run_command("make", [f"-j{jobs}", f"CC={compiler}"], project, "Build complete.")
 
     def install_windows_update(self, release: dict[str, Any], update_dir: Path) -> dict[str, Any]:
         asset = exact_asset(release, "Z3R-Launcher-windows-x64-setup.exe")
@@ -1357,6 +1361,28 @@ def check_python_dependencies(project_path: Path | None) -> dict[str, str]:
     return check_command("python-dependencies", display_path(python), "Python dependencies", ["-c", "import PIL, yaml"], "Install dependencies with the venv before extracting assets.")
 
 
+def c_compiler_program() -> str | None:
+    path = command_env().get("PATH")
+    for program in C_COMPILER_CANDIDATES:
+        found = shutil.which(program, path=path)
+        if found:
+            return found
+    return None
+
+
+def check_c_compiler() -> dict[str, str]:
+    path = command_env().get("PATH")
+    for program in C_COMPILER_CANDIDATES:
+        found = shutil.which(program, path=path)
+        if not found:
+            continue
+        check = check_command("c-compiler", found, "C compiler", ["--version"], "Required to compile Z3R.")
+        if check["state"] == "ok":
+            check["detail"] = f"Found {found}: {check['detail']}"
+            return check
+    return missing_check("c-compiler", "C compiler", "Required to compile Z3R. Install gcc or clang.")
+
+
 def check_rom(project_path: Path | None) -> dict[str, str]:
     if not project_path:
         return unknown_check("rom", "Game ROM (zelda3.sfc)", "Select or clone a Z3R folder before checking the ROM.")
@@ -1389,6 +1415,7 @@ def check_msbuild() -> dict[str, str]:
 def check_unix_build_tools() -> list[dict[str, str]]:
     return [
         check_command("make", "make", "Make", ["--version"], "Required to compile Z3R on macOS and Linux."),
+        check_c_compiler(),
         check_command("sdl2-dev", "sdl2-config", "SDL2 development files", ["--version"], "Required by the Makefile compiler flags."),
     ]
 

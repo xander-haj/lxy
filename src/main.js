@@ -475,7 +475,15 @@ elements.dependenciesButton.addEventListener("click", async () => {
 elements.extractButton.addEventListener("click", async () => {
   const payload = selectedProjectPayload();
   if (payload) {
-    await runSetupAction("extract_assets", payload, ["python", "venv", "python-dependencies", "rom"]);
+    await runSetupAction("extract_assets", payload, [
+      "python",
+      "venv",
+      "python-dependencies",
+      "rom",
+      "make",
+      "c-compiler",
+      "sdl2-dev",
+    ]);
   }
 });
 elements.extractVisualStudioButton.addEventListener("click", async () => {

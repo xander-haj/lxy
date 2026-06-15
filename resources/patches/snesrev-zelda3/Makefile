@@ -4,7 +4,15 @@ SRCS:=$(wildcard src/*.c snes/*.c) third_party/gl_core/gl_core_3_1.c \
   third_party/opus-1.3.1-stripped/opus_decoder_amalgam.c
 OBJS:=$(SRCS:%.c=%.o)
 PYTHON:=/usr/bin/env python3
-CFLAGS:=$(if $(CFLAGS),$(CFLAGS),-O2 -Werror -Wno-error=deprecated-non-prototype) -I .
+COMPILER_CANDIDATES:=cc gcc clang
+ifeq ($(origin CC),default)
+    CC:=$(firstword $(foreach compiler,$(COMPILER_CANDIDATES),$(shell command -v $(compiler) 2>/dev/null)))
+endif
+ifeq ($(strip $(CC)),)
+    $(error No C compiler found. Install gcc or clang, or run make with CC=/path/to/compiler)
+endif
+CLANG_NONPROTOTYPE_FLAG:=$(shell $(CC) -Wdeprecated-non-prototype -E -x c /dev/null >/dev/null 2>&1 && echo -Wno-error=deprecated-non-prototype)
+CFLAGS:=$(if $(CFLAGS),$(CFLAGS),-O2 -Werror $(CLANG_NONPROTOTYPE_FLAG)) -I .
 CFLAGS:=${CFLAGS} $(shell sdl2-config --cflags) -DSYSTEM_VOLUME_MIXER_AVAILABLE=0
 
 ifeq (${OS},Windows_NT)
