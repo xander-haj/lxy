@@ -101,20 +101,9 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-windows-toolkit.ps1
 
-      - name: Prepare bundled Linux AppImage compiler
-        if: matrix.family == 'linux'
+      - name: Install PyInstaller packaging dependencies
         shell: bash
-        timeout-minutes: 20
-        run: ./scripts/prepare-linux-toolchain.sh
-
-      - name: Verify bundled Linux AppImage compiler
-        if: matrix.family == 'linux'
-        shell: bash
-        run: ./scripts/verify-linux-toolchain.sh
-
-      - name: Install PyInstaller
-        shell: bash
-        run: python -m pip install --upgrade pip pyinstaller
+        run: python -m pip install --upgrade pip pyinstaller certifi
 
       - name: Build Python executable
         shell: bash

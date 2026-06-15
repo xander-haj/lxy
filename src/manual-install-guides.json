@@ -332,8 +332,8 @@
           "text": "On Debian/Ubuntu or apt-based systems, install `build-essential`. On Arch-based systems, install a compiler package such as `gcc` or the `base-devel` group."
         },
         {
-          "title": "Steam Deck note",
-          "text": "Prebuilt AppImage releases include a bundled compiler for this launcher-managed build path. If this check is missing in an AppImage release, reinstall the latest AppImage. Source runs and custom local builds still need gcc or clang from the system."
+          "title": "Packaged Linux note",
+          "text": "AppImage and Flatpak launcher releases download the matching Z3R executable instead of compiling it locally. Source runs and native Linux builds still need gcc or clang from the system."
         },
         {
           "title": "Run checks again",

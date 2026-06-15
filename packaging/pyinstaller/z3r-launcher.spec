@@ -2,12 +2,15 @@
 from pathlib import Path
 import sys
 
+import certifi
+
 
 root = Path.cwd()
 datas = [
     (str(root / "src"), "src"),
     (str(root / "resources"), "resources"),
     (str(root / "bundled-tools"), "bundled-tools"),
+    (certifi.where(), "certifi"),
 ]
 if sys.platform == "darwin":
     icon = root / "resources" / "icons" / "icon.icns"
@@ -21,7 +24,7 @@ a = Analysis(
     pathex=[str(root)],
     binaries=[],
     datas=datas,
-    hiddenimports=["tkinter", "tkinter.filedialog"],
+    hiddenimports=["tkinter", "tkinter.filedialog", "certifi"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

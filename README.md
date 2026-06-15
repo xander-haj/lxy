@@ -20,8 +20,9 @@ Main features:
 - Uploads and stores a user-supplied `zelda3.sfc`, then copies it into detected or cloned projects.
 - Clones the default Z3R repo or a custom GitHub fork.
 - Checks project setup state for Git, Python, virtualenv, Python packages, ROM files, SDL2, Make,
-  MSBuild, TCC, and related platform tools.
-- Runs guided setup actions: create venv, install project requirements, extract assets, and build the game.
+  MSBuild, TCC, executable downloads, and related platform tools.
+- Runs guided setup actions: create venv, install project requirements, extract assets, and either
+  build or download the game executable for the current package type.
 - Launches ready builds.
 - Edits selected `zelda3.ini` settings, including aspect ratio, controls, gamepad settings, and feature toggles.
 - Manages optional feature assets such as MSU packs, sprites, and shaders.
@@ -37,7 +38,7 @@ The source checkout does not require Node.js, npm, Rust, Cargo, or Tauri.
 Requirements:
 
 - Python 3.10 or newer
-- Git, Python venv support, Make/SDL2, or Windows build tools only if you want the launcher to build Z3R projects
+- Git, Python venv support, and Make/SDL2 or Windows build tools only for native source builds
 
 Run from the repository root:
 
@@ -57,9 +58,7 @@ for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-python3 -m pip install --upgrade pyinstaller
-./scripts/prepare-linux-toolchain.sh
-./scripts/verify-linux-toolchain.sh
+python3 -m pip install --upgrade pyinstaller certifi
 python3 -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
@@ -70,10 +69,7 @@ The workflow then assembles an AppDir with:
 - `packaging/appimage/io.github.xander_haj.Z3RLauncher.desktop`
 - `resources/icons/128x128.png`
 
-Before PyInstaller runs, the workflow also prepares `bundled-tools/linux/cc`, a
-Zig-based compiler wrapper used by the AppImage build path when the host system
-does not provide `cc`, `gcc`, or `clang`. The workflow emits
-`Z3R-Launcher-linux-x64.AppImage`.
+The workflow emits `Z3R-Launcher-linux-x64.AppImage`.
 
 ### macOS DMGs
 
@@ -93,9 +89,11 @@ It installs the Python package, static UI, resources, and bundled-tool metadata 
 `/app/share/z3r-launcher`, then runs `/usr/bin/python3 -m z3r_launcher`.
 
 The Flatpak uses the GNOME SDK runtime so Steam Deck and other Flatpak users can run the
-launcher-managed Git, Python, venv, pip, SDL2, and Make build path inside the sandbox instead of
-installing those tools on the host OS. The Flatpak can work in the home folder and Steam Deck
-removable-media paths under `/run/media`.
+launcher-managed Git, Python, venv, and pip path inside the sandbox instead of installing
+those tools on the host OS. For Z3R and Z3R-Beta, packaged Linux builds generate
+`zelda3_assets.dat` locally, then download the matching Linux executable from GitHub
+Releases. The Flatpak can work in the home folder and Steam Deck removable-media paths
+under `/run/media`.
 
 ### Windows Setup Exe
 
@@ -114,7 +112,7 @@ installing those dependencies separately.
 Build the executable and setup package:
 
 ```powershell
-python -m pip install --upgrade pyinstaller
+python -m pip install --upgrade pyinstaller certifi
 python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 copy dist\z3r-launcher.exe dist\Z3R-Launcher-windows-x64.exe
 $repoRoot = (Get-Location).Path
@@ -146,9 +144,10 @@ Linux:
 - SDL2 development files, for example `sudo apt-get install libsdl2-dev` on Debian/Ubuntu
 - `python3-venv` on Debian/Ubuntu if Python cannot create a virtual environment
 
-Prebuilt AppImage releases include a bundled Linux C compiler wrapper for the
-launcher-managed build path. SDL2 development files and Make still come from the
-host system.
+Prebuilt AppImage and Flatpak launcher releases do not compile the Linux game
+executable locally. They build `zelda3_assets.dat` from the user's ROM, then
+download the matching Linux executable from the selected Z3R or Z3R-Beta GitHub
+Release.
 
 Windows:
 

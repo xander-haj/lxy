@@ -250,6 +250,12 @@ function selectedProjectPayload() {
   return { projectPath: state.selectedPath };
 }
 
+function extractAssetRequiredCheckIds() {
+  const packagedLinuxDownload = Boolean(state.runtimeInfo?.downloaded_linux_game_executable);
+  const baseIds = ["python", "venv", "python-dependencies", "rom"];
+  return packagedLinuxDownload ? [...baseIds, "game-executable-download"] : [...baseIds, "make", "c-compiler", "sdl2-dev"];
+}
+
 // Re-runs the backend sibling scan, keeps the selected project alive when it still
 // exists, and repaints the card grid and environment screen.
 async function refreshScan() {
@@ -475,15 +481,7 @@ elements.dependenciesButton.addEventListener("click", async () => {
 elements.extractButton.addEventListener("click", async () => {
   const payload = selectedProjectPayload();
   if (payload) {
-    await runSetupAction("extract_assets", payload, [
-      "python",
-      "venv",
-      "python-dependencies",
-      "rom",
-      "make",
-      "c-compiler",
-      "sdl2-dev",
-    ]);
+    await runSetupAction("extract_assets", payload, extractAssetRequiredCheckIds());
   }
 });
 elements.extractVisualStudioButton.addEventListener("click", async () => {

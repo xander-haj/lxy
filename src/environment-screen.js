@@ -101,7 +101,7 @@ function openManualInstallGuide(check, helpers) {
 // selected yet so the user doesn't see literal placeholders.
 function renderSteps(helpers) {
   const { state, elements } = helpers;
-  const steps = state.setupGuidance?.[state.environmentOs] ?? [];
+  const steps = setupStepsForRuntime(state);
   elements.stepList.textContent = "";
 
   for (const step of steps) {
@@ -113,6 +113,13 @@ function renderSteps(helpers) {
     item.textContent = step.replace("{projectPath}", state.selectedPath ?? "");
     elements.stepList.append(item);
   }
+}
+
+function setupStepsForRuntime(state) {
+  if (state.environmentOs === "linux" && state.runtimeInfo?.downloaded_linux_game_executable) {
+    return state.setupGuidance?.linux_packaged ?? state.setupGuidance?.linux ?? [];
+  }
+  return state.setupGuidance?.[state.environmentOs] ?? [];
 }
 
 function renderPlayableBadge(helpers) {

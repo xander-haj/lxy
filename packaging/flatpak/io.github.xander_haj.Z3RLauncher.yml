@@ -1,8 +1,8 @@
 id: io.github.xander_haj.Z3RLauncher
-# The launcher creates venvs, installs Python requirements, clones with Git, and
-# builds the selected Z3R project with make. Use the SDK as the shipped runtime so
-# Steam Deck users get those tools inside the Flatpak sandbox instead of depending
-# on the immutable host OS.
+# The launcher creates venvs, installs Python requirements, clones with Git,
+# builds zelda3_assets.dat, and downloads the selected Z3R Linux executable.
+# Use the SDK as the shipped runtime so Steam Deck users get Python, pip, venv,
+# and Git inside the Flatpak sandbox instead of depending on the immutable host OS.
 runtime: org.gnome.Sdk
 runtime-version: '48'
 sdk: org.gnome.Sdk

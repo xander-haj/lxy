@@ -12,13 +12,16 @@ export function updateEnvironmentActions(elements, checks, options = {}) {
   const dependenciesReady = checkReady(checks, "python-dependencies");
   // Build assets invokes restool.py --extract-from-rom, which fails without zelda3.sfc in the project root.
   const romReady = checkReady(checks, "rom");
+  const executableDownloadReady =
+    !checks.some((check) => check.id === "game-executable-download") ||
+    checkReady(checks, "game-executable-download");
   const windowsReady = checks.some((check) => check.id === "msbuild" || check.id === "tcc");
   const unixBuildIds = ["make", "c-compiler", "sdl2-dev"];
   const hasUnixBuildChecks = checks.some((check) => unixBuildIds.includes(check.id));
   const unixBuildReady = !hasUnixBuildChecks || checksReady(checks, unixBuildIds);
   const msbuildReady = checkReady(checks, "msbuild");
   const tccReady = checkReady(checks, "tcc");
-  const baseBuildReady = pythonReady && venvReady && dependenciesReady && romReady;
+  const baseBuildReady = pythonReady && venvReady && dependenciesReady && romReady && executableDownloadReady;
   const venvFailureBlocksDownstream = failedSetupStep === "create_venv";
   const dependencyFailureBlocksBuild = failedSetupStep === "install_dependencies";
   const setupBlocked = actionRunning || !hasSelectedProject;
