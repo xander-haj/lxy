@@ -58,6 +58,8 @@ The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImage
 
 ```sh
 python3 -m pip install --upgrade pyinstaller
+./scripts/prepare-linux-toolchain.sh
+./scripts/verify-linux-toolchain.sh
 python3 -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
@@ -68,7 +70,10 @@ The workflow then assembles an AppDir with:
 - `packaging/appimage/io.github.xander_haj.Z3RLauncher.desktop`
 - `resources/icons/128x128.png`
 
-and emits `Z3R-Launcher-linux-x64.AppImage`.
+Before PyInstaller runs, the workflow also prepares `bundled-tools/linux/cc`, a
+Zig-based compiler wrapper used by the AppImage build path when the host system
+does not provide `cc`, `gcc`, or `clang`. The workflow emits
+`Z3R-Launcher-linux-x64.AppImage`.
 
 ### macOS DMGs
 
@@ -140,6 +145,10 @@ Linux:
 - `make` and a C compiler available as `cc`, `gcc`, or `clang`
 - SDL2 development files, for example `sudo apt-get install libsdl2-dev` on Debian/Ubuntu
 - `python3-venv` on Debian/Ubuntu if Python cannot create a virtual environment
+
+Prebuilt AppImage releases include a bundled Linux C compiler wrapper for the
+launcher-managed build path. SDL2 development files and Make still come from the
+host system.
 
 Windows:
 

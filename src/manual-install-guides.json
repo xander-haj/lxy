@@ -333,7 +333,7 @@
         },
         {
           "title": "Steam Deck note",
-          "text": "SteamOS may not include a host compiler for AppImage-launched builds. If the OS cannot provide gcc or clang, use the Flatpak launcher build path or install build tools in a developer environment before running the AppImage."
+          "text": "Prebuilt AppImage releases include a bundled compiler for this launcher-managed build path. If this check is missing in an AppImage release, reinstall the latest AppImage. Source runs and custom local builds still need gcc or clang from the system."
         },
         {
           "title": "Run checks again",

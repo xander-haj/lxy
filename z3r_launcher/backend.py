@@ -80,6 +80,10 @@ def is_flatpak_runtime() -> bool:
     return is_linux() and FLATPAK_INFO_PATH.is_file()
 
 
+def is_appimage_runtime() -> bool:
+    return is_linux() and bool(os.environ.get("APPIMAGE"))
+
+
 def launcher_root() -> Path:
     override = os.environ.get("Z3R_LAUNCHER_ROOT")
     if override:
@@ -108,6 +112,10 @@ def bundled_tools_dir() -> Path:
 
 def windows_tools_dir() -> Path:
     return bundled_tools_dir() / "windows"
+
+
+def linux_tools_dir() -> Path:
+    return bundled_tools_dir() / "linux"
 
 
 def app_data_dir() -> Path:
@@ -421,6 +429,12 @@ def bundled_sdl2_dll() -> Path | None:
 def bundled_sdl2_root() -> Path | None:
     root = windows_tools_dir() / "sdl2"
     return root if (root / "include").is_dir() else None
+
+
+def bundled_linux_cc() -> Path | None:
+    if not is_appimage_runtime() or is_flatpak_runtime():
+        return None
+    return first_existing([linux_tools_dir() / "cc"])
 
 
 def git_program() -> str:
@@ -1029,7 +1043,7 @@ class LauncherBackend:
         jobs = str(os.cpu_count() or 2)
         compiler = c_compiler_program()
         if not compiler:
-            return action_result(False, "No C compiler was found. Install gcc or clang before building Z3R on Linux/macOS.")
+            return action_result(False, missing_c_compiler_message())
         return run_command("make", [f"-j{jobs}", f"CC={compiler}"], project, "Build complete.")
 
     def install_windows_update(self, release: dict[str, Any], update_dir: Path) -> dict[str, Any]:
@@ -1362,6 +1376,9 @@ def check_python_dependencies(project_path: Path | None) -> dict[str, str]:
 
 
 def c_compiler_program() -> str | None:
+    bundled = bundled_linux_cc()
+    if bundled:
+        return display_path(bundled)
     path = command_env().get("PATH")
     for program in C_COMPILER_CANDIDATES:
         found = shutil.which(program, path=path)
@@ -1371,6 +1388,12 @@ def c_compiler_program() -> str | None:
 
 
 def check_c_compiler() -> dict[str, str]:
+    bundled = bundled_linux_cc()
+    if bundled:
+        check = check_command("c-compiler", display_path(bundled), "C compiler", ["--version"], "Required to compile Z3R.")
+        if check["state"] == "ok":
+            check["detail"] = f"Using bundled AppImage compiler: {display_path(bundled)}"
+            return check
     path = command_env().get("PATH")
     for program in C_COMPILER_CANDIDATES:
         found = shutil.which(program, path=path)
@@ -1380,7 +1403,13 @@ def check_c_compiler() -> dict[str, str]:
         if check["state"] == "ok":
             check["detail"] = f"Found {found}: {check['detail']}"
             return check
-    return missing_check("c-compiler", "C compiler", "Required to compile Z3R. Install gcc or clang.")
+    return missing_check("c-compiler", "C compiler", missing_c_compiler_message())
+
+
+def missing_c_compiler_message() -> str:
+    if is_appimage_runtime() and not bundled_linux_cc():
+        return "The AppImage bundled compiler is missing, and no host gcc or clang was found. Reinstall the latest AppImage."
+    return "Required to compile Z3R. Install gcc or clang."
 
 
 def check_rom(project_path: Path | None) -> dict[str, str]:
@@ -2485,6 +2514,12 @@ def pick_folder(title: str) -> str | None:
     elif is_macos():
         commands.append(["osascript", "-e", f'POSIX path of (choose folder with prompt "{applescript_quote(title)}")'])
     else:
+        if is_flatpak_runtime():
+            commands.extend([
+                ["flatpak-spawn", "--host", "/usr/bin/zenity", "--file-selection", "--directory", f"--title={title}"],
+                ["flatpak-spawn", "--host", "/usr/bin/kdialog", "--getexistingdirectory", str(Path.home()), "--title", title],
+                ["flatpak-spawn", "--host", "/usr/bin/yad", "--file", "--directory", f"--title={title}"],
+            ])
         commands.extend([
             ["zenity", "--file-selection", "--directory", f"--title={title}"],
             ["kdialog", "--getexistingdirectory", str(Path.home()), "--title", title],
@@ -2511,6 +2546,12 @@ def pick_file(title: str, filters: list[tuple[str, str]]) -> str | None:
     elif is_macos():
         commands.append(["osascript", "-e", f'POSIX path of (choose file of type {{"sfc"}} with prompt "{applescript_quote(title)}")'])
     else:
+        if is_flatpak_runtime():
+            commands.extend([
+                ["flatpak-spawn", "--host", "/usr/bin/zenity", "--file-selection", f"--title={title}", "--file-filter=SNES ROM | *.sfc"],
+                ["flatpak-spawn", "--host", "/usr/bin/kdialog", "--getopenfilename", str(Path.home()), "*.sfc|SNES ROM"],
+                ["flatpak-spawn", "--host", "/usr/bin/yad", "--file", f"--title={title}"],
+            ])
         commands.extend([
             ["zenity", "--file-selection", f"--title={title}", "--file-filter=SNES ROM | *.sfc"],
             ["kdialog", "--getopenfilename", str(Path.home()), "*.sfc|SNES ROM"],

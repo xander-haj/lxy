@@ -34,7 +34,9 @@ modules:
     build-commands:
       - install -Dm755 packaging/flatpak/z3r-launcher /app/bin/z3r-launcher
       - mkdir -p /app/share/z3r-launcher
-      - cp -a z3r_launcher src resources bundled-tools /app/share/z3r-launcher/
+      - cp -a z3r_launcher src resources /app/share/z3r-launcher/
+      - mkdir -p /app/share/z3r-launcher/bundled-tools
+      - install -Dm644 bundled-tools/README.md /app/share/z3r-launcher/bundled-tools/README.md
       - install -Dm644 README.md /app/share/doc/Z3RLauncher/README.md
       - >-
         install -Dm644 packaging/flatpak/io.github.xander_haj.Z3RLauncher.desktop

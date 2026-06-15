@@ -79,9 +79,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            curl \
             file \
             libfuse2 \
-            wget
+            wget \
+            xz-utils
 
       - name: Install Windows packaging dependencies
         if: matrix.family == 'windows'
@@ -98,6 +100,17 @@ jobs:
         if: matrix.family == 'windows'
         shell: pwsh
         run: ./scripts/verify-windows-toolkit.ps1
+
+      - name: Prepare bundled Linux AppImage compiler
+        if: matrix.family == 'linux'
+        shell: bash
+        timeout-minutes: 20
+        run: ./scripts/prepare-linux-toolchain.sh
+
+      - name: Verify bundled Linux AppImage compiler
+        if: matrix.family == 'linux'
+        shell: bash
+        run: ./scripts/verify-linux-toolchain.sh
 
       - name: Install PyInstaller
         shell: bash

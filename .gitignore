@@ -13,3 +13,7 @@ venv/
 .venv/
 target/
 *.spec.bak
+bundled-tools/linux/cc
+bundled-tools/linux/zig/
+bundled-tools/linux/_downloads/
+bundled-tools/windows/
