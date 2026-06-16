@@ -138,8 +138,25 @@ def bundled_tools_dir() -> Path:
     return launcher_root() / "bundled-tools"
 
 
+def bundled_tools_candidates() -> list[Path]:
+    candidates: list[Path] = []
+    if is_windows() and getattr(sys, "frozen", False):
+        candidates.append(current_executable_path().parent / "bundled-tools")
+    candidates.append(bundled_tools_dir())
+    return candidates
+
+
 def windows_tools_dir() -> Path:
-    return bundled_tools_dir() / "windows"
+    for root in bundled_tools_candidates():
+        candidate = root / "windows"
+        if candidate.is_dir():
+            return candidate
+    return bundled_tools_candidates()[0] / "windows"
+
+
+def hidden_subprocess_kwargs() -> dict[str, int]:
+    flag = getattr(subprocess, "CREATE_NO_WINDOW", 0) if is_windows() else 0
+    return {"creationflags": flag} if flag else {}
 
 
 def app_data_dir() -> Path:
@@ -334,6 +351,7 @@ def run_process(
         stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
         stderr=subprocess.PIPE if capture else subprocess.DEVNULL,
         check=False,
+        **hidden_subprocess_kwargs(),
     )
     if check and completed.returncode != 0:
         detail = decode_output(completed.stderr).strip() or decode_output(completed.stdout).strip()
@@ -388,6 +406,7 @@ def open_path(path: Path, label: str) -> None:
                 stderr=subprocess.DEVNULL,
                 env=command_env(remove_appimage=sanitize),
                 check=False,
+                **hidden_subprocess_kwargs(),
             )
             if completed.returncode == 0:
                 return
@@ -411,14 +430,19 @@ def open_external_url(url: str) -> None:
         raise LauncherError("Only http and https documentation links can be opened.")
 
     if is_windows():
-        subprocess.Popen(["rundll32", "url.dll,FileProtocolHandler", url], stdin=subprocess.DEVNULL, env=command_env())
+        subprocess.Popen(
+            ["rundll32", "url.dll,FileProtocolHandler", url],
+            stdin=subprocess.DEVNULL,
+            env=command_env(),
+            **hidden_subprocess_kwargs(),
+        )
         return
     if is_macos():
-        subprocess.Popen(["open", url], stdin=subprocess.DEVNULL, env=command_env())
+        subprocess.Popen(["open", url], stdin=subprocess.DEVNULL, env=command_env(), **hidden_subprocess_kwargs())
         return
 
     opener = linux_host_program_path("xdg-open") or "xdg-open"
-    subprocess.Popen([opener, url], stdin=subprocess.DEVNULL, env=command_env(remove_appimage=True))
+    subprocess.Popen([opener, url], stdin=subprocess.DEVNULL, env=command_env(remove_appimage=True), **hidden_subprocess_kwargs())
 
 
 def first_existing(paths: list[Path]) -> Path | None:
@@ -656,6 +680,7 @@ class LauncherBackend:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 env=command_env(),
+                **hidden_subprocess_kwargs(),
             )
         except OSError as error:
             raise LauncherError(f"Could not launch game: {error}") from error
@@ -1075,11 +1100,11 @@ class LauncherBackend:
         return run_command("make", [f"-j{jobs}", f"CC={compiler}"], project, "Build complete.")
 
     def install_windows_update(self, release: dict[str, Any], update_dir: Path) -> dict[str, Any]:
-        asset = exact_asset(release, "Z3R-Launcher-windows-x64-setup.exe")
-        installer = download_release_asset(asset, update_dir)
+        asset = exact_asset(release, "Z3R-Launcher-windows-x64.exe")
+        downloaded_exe = download_release_asset(asset, update_dir)
         script_path = update_dir / "apply-windows-update.ps1"
         log_path = update_dir / "apply-windows-update.log"
-        relaunch_path = current_executable_path()
+        target_path = current_executable_path()
         write_windows_update_script(script_path)
         subprocess.Popen([
             "powershell.exe",
@@ -1090,18 +1115,20 @@ class LauncherBackend:
             str(script_path),
             "-LauncherPid",
             str(os.getpid()),
-            "-Installer",
-            str(installer),
+            "-Downloaded",
+            str(downloaded_exe),
+            "-Target",
+            str(target_path),
             "-Relaunch",
-            str(relaunch_path),
+            str(target_path),
             "-Log",
             str(log_path),
-        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
+        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env(), **hidden_subprocess_kwargs())
         self.schedule_exit()
         return action_result(
             True,
-            f"Launcher update {release['tag_name']} downloaded and setup started. The launcher will close so the setup exe can replace it.",
-            f"Installer: {display_path(installer)}\nUpdater log: {display_path(log_path)}",
+            f"Launcher update {release['tag_name']} downloaded. The launcher will close so the exe can be replaced.",
+            f"Executable: {display_path(downloaded_exe)}\nUpdater log: {display_path(log_path)}",
         )
 
     def install_macos_update(self, release: dict[str, Any], update_dir: Path) -> dict[str, Any]:
@@ -1123,7 +1150,7 @@ class LauncherBackend:
             str(bundle_path),
             app_name,
             str(log_path),
-        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
+        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env(), **hidden_subprocess_kwargs())
         self.schedule_exit()
         return action_result(True, f"Launcher update {release['tag_name']} downloaded. The launcher will close, replace the app bundle, and reopen.", f"Updater log: {display_path(log_path)}")
 
@@ -1159,7 +1186,7 @@ class LauncherBackend:
             str(downloaded_appimage),
             str(current_appimage),
             str(log_path),
-        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
+        ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env(), **hidden_subprocess_kwargs())
         self.schedule_exit()
         return action_result(True, f"Launcher update {release['tag_name']} downloaded. The launcher will close, replace the AppImage, and reopen.", f"Updater log: {display_path(log_path)}")
 
@@ -2650,7 +2677,7 @@ def spawn_flatpak_relaunch() -> None:
         "z3r-launcher-flatpak-relaunch",
         str(os.getpid()),
         APP_ID,
-    ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
+    ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env(), **hidden_subprocess_kwargs())
 
 
 def current_appimage_path() -> Path:
@@ -2675,7 +2702,8 @@ def write_windows_update_script(path: Path) -> None:
     path.write_text(r'''
 param(
   [Parameter(Mandatory = $true)][int]$LauncherPid,
-  [Parameter(Mandatory = $true)][string]$Installer,
+  [Parameter(Mandatory = $true)][string]$Downloaded,
+  [Parameter(Mandatory = $true)][string]$Target,
   [Parameter(Mandatory = $true)][string]$Relaunch,
   [Parameter(Mandatory = $true)][string]$Log
 )
@@ -2684,14 +2712,34 @@ function Write-UpdateLog([string]$Message) {
   $stamp = Get-Date -Format o
   Add-Content -LiteralPath $Log -Value "$stamp $Message"
 }
+function Move-WithRetry([string]$Source, [string]$Destination) {
+  for ($attempt = 1; $attempt -le 20; $attempt++) {
+    try {
+      Move-Item -LiteralPath $Source -Destination $Destination -Force
+      return
+    } catch {
+      if ($attempt -eq 20) {
+        throw
+      }
+      Start-Sleep -Milliseconds 250
+    }
+  }
+}
 try {
   Write-UpdateLog "Waiting for launcher process $LauncherPid to close."
   Wait-Process -Id $LauncherPid -ErrorAction SilentlyContinue
-  Write-UpdateLog "Starting launcher setup exe."
-  $process = Start-Process -FilePath $Installer -ArgumentList "/S" -Wait -PassThru
-  if ($process.ExitCode -ne 0) {
-    throw "Setup exe exited with code $($process.ExitCode)."
+  if (!(Test-Path -LiteralPath $Downloaded)) {
+    throw "Downloaded launcher exe was not found: $Downloaded"
   }
+  $targetDirectory = Split-Path -Parent $Target
+  if ($targetDirectory -and !(Test-Path -LiteralPath $targetDirectory)) {
+    New-Item -ItemType Directory -Force -Path $targetDirectory | Out-Null
+  }
+  $temporaryTarget = "$Target.new"
+  Remove-Item -LiteralPath $temporaryTarget -Force -ErrorAction SilentlyContinue
+  Write-UpdateLog "Moving downloaded launcher exe into place."
+  Move-WithRetry -Source $Downloaded -Destination $temporaryTarget
+  Move-WithRetry -Source $temporaryTarget -Destination $Target
   if (Test-Path -LiteralPath $Relaunch) {
     Write-UpdateLog "Relaunching updated launcher."
     Start-Process -FilePath $Relaunch
@@ -2832,6 +2880,7 @@ def run_picker_commands(commands: list[list[str]]) -> str | None:
                 stderr=subprocess.PIPE,
                 env=command_env(),
                 check=False,
+                **hidden_subprocess_kwargs(),
             )
         except OSError:
             continue

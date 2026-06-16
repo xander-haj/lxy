@@ -10,6 +10,7 @@ RequestExecutionLevel user
 !define REPO_ROOT "."
 !endif
 !define DIST_DIR "${REPO_ROOT}\dist"
+!define BUNDLED_TOOLS_DIR "${REPO_ROOT}\bundled-tools"
 
 Name "${APP_NAME}"
 OutFile "${DIST_DIR}\Z3R-Launcher-windows-x64-setup.exe"
@@ -34,6 +35,8 @@ VIAddVersionKey "FileVersion" "0.1.0.0"
 Section "Install"
   SetOutPath "$INSTDIR"
   File /oname=${APP_EXE} "${DIST_DIR}\${APP_EXE}"
+  SetOutPath "$INSTDIR\bundled-tools"
+  File /r "${BUNDLED_TOOLS_DIR}\*"
   WriteRegStr HKCU "Software\${APP_ID}" "InstallDir" "$INSTDIR"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
@@ -53,6 +56,7 @@ SectionEnd
 Section "Uninstall"
   Delete "$INSTDIR\${APP_EXE}"
   Delete "$INSTDIR\Uninstall.exe"
+  RMDir /r "$INSTDIR\bundled-tools"
   Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk"
   RMDir "$SMPROGRAMS\${APP_NAME}"

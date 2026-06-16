@@ -9,7 +9,6 @@ root = Path.cwd()
 datas = [
     (str(root / "src"), "src"),
     (str(root / "resources"), "resources"),
-    (str(root / "bundled-tools"), "bundled-tools"),
     (certifi.where(), "certifi"),
 ]
 if sys.platform == "darwin":
