@@ -1,5 +1,6 @@
 Unicode true
 RequestExecutionLevel user
+!include "MUI2.nsh"
 
 !define APP_NAME "Z3R Launcher"
 !define COMPANY_NAME "xander-haj"
@@ -14,6 +15,15 @@ Name "${APP_NAME}"
 OutFile "${DIST_DIR}\Z3R-Launcher-windows-x64-setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\Z3R Launcher"
 InstallDirRegKey HKCU "Software\${APP_ID}" "InstallDir"
+
+!define MUI_ABORTWARNING
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_LANGUAGE "English"
 
 VIProductVersion "0.1.0.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"
