@@ -76,13 +76,14 @@ function buildEmptyCard() {
 function buildProjectCard(candidate, helpers) {
   const { state, selectProject } = helpers;
   const card = document.createElement("article");
-  card.className = `project-card ${candidate.path === state.selectedPath ? "selected" : ""}`;
+  const isPlayable = candidate.status === "ready" && Boolean(candidate.executable_path);
+  card.className = `project-card ${candidate.path === state.selectedPath ? "selected" : ""} ${isPlayable ? "" : "not-playable"}`;
   card.addEventListener("click", () => selectProject(candidate.path));
 
   // Status pill colors derive from the backend status string; unknown statuses fall back to
   // the "warning" gold palette so they remain visible rather than disappearing.
   const statusClass = { ready: "ready", "missing-assets": "missing" }[candidate.status] ?? "warning";
-  const playDisabled = candidate.status !== "ready" || !candidate.executable_path;
+  const playDisabled = !isPlayable;
   const authorLine = candidate.owner
     ? `<p class="card-author">by ${escapeHtml(candidate.owner)}</p>`
     : "";
@@ -93,16 +94,29 @@ function buildProjectCard(candidate, helpers) {
     playDisabled,
     nameSafe: escapeHtml(candidate.name),
     authorLine,
-    patchButton: sourcePatchButtonMarkup(candidate),
-    repoButton: repoButtonMarkup(candidate),
+    patchButton: sourcePatchButtonMarkup(candidate, isPlayable),
+    repoButton: repoButtonMarkup(candidate, isPlayable),
+    disabledUntilPlayable: disabledUntilPlayableAttribute(isPlayable),
   });
 
   wireCardButtons(card, candidate, helpers);
   // Mount the inline Aspect Ratio compound widget into the placeholder slot. The widget
   // owns its own debounce + auto-save loop against the project's zelda3.ini.
-  mountAspectRatioWidget(card.querySelector(".card-aspect-mount"), candidate, helpers);
+  const aspectMount = card.querySelector(".card-aspect-mount");
+  void mountAspectRatioWidget(aspectMount, candidate, helpers).then(() => {
+    if (!isPlayable) {
+      disableCardAspectControls(aspectMount);
+    }
+  });
 
   return card;
+}
+
+function disableCardAspectControls(mountElement) {
+  mountElement?.classList.add("card-aspect-mount-disabled");
+  mountElement?.querySelectorAll("button, input, select, textarea").forEach((control) => {
+    control.disabled = true;
+  });
 }
 
 // Centralizes the card HTML so wireCardButtons can stay focused on event wiring. The
@@ -116,6 +130,7 @@ function buildCardMarkup({
   authorLine,
   patchButton,
   repoButton,
+  disabledUntilPlayable,
 }) {
   return `
     <span class="status ${statusClass}">${statusLabel}</span>
@@ -131,13 +146,13 @@ function buildCardMarkup({
     <div class="card-config-actions">
       <div class="card-aspect-mount"></div>
       <div class="card-config-button-row">
-        <button class="secondary-button features-button" type="button">Features</button>
-        <button class="secondary-button controls-button" type="button">Controls</button>
+        <button class="secondary-button features-button" type="button" ${disabledUntilPlayable}>Features</button>
+        <button class="secondary-button controls-button" type="button" ${disabledUntilPlayable}>Controls</button>
       </div>
     </div>
     <div class="card-setup-actions">
       <button class="secondary-button environment-button" type="button">Environment</button>
-      <button class="secondary-button randomizer-button" type="button">Randomizer</button>
+      <button class="secondary-button randomizer-button" type="button" ${disabledUntilPlayable}>Randomizer</button>
     </div>
   `;
 }
@@ -198,7 +213,11 @@ function wireCardButtons(card, candidate, helpers) {
 }
 
 // Keeps platform-specific source patch markup in one place so normal cards remain unchanged.
-function sourcePatchButtonMarkup(candidate) {
+function disabledUntilPlayableAttribute(isPlayable) {
+  return isPlayable ? "" : "disabled";
+}
+
+function sourcePatchButtonMarkup(candidate, isPlayable) {
   const labels = {
     makefile: "Patch Makefile",
     solution: "Patch SLN",
@@ -206,12 +225,12 @@ function sourcePatchButtonMarkup(candidate) {
   const label = labels[candidate.source_patch_needed];
 
   return label
-    ? `<button class="secondary-button source-patch-button" type="button">${label}</button>`
+    ? `<button class="secondary-button source-patch-button" type="button" ${disabledUntilPlayableAttribute(isPlayable)}>${label}</button>`
     : "";
 }
 
-function repoButtonMarkup(candidate) {
+function repoButtonMarkup(candidate, isPlayable) {
   return candidate.git_repo
-    ? `<button class="secondary-button repo-update-button" type="button">Open Repo</button>`
+    ? `<button class="secondary-button repo-update-button" type="button" ${disabledUntilPlayableAttribute(isPlayable)}>Open Repo</button>`
     : "";
 }

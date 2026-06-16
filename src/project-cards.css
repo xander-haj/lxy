@@ -1,6 +1,6 @@
 /* Detected build card layout. Split from styles.css so card-specific grid changes
    stay isolated from the global shell and button styling. */
-.project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; }
+.project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(390px, 1fr)); gap: 22px; }
 
 .project-card {
   display: grid;
@@ -8,7 +8,7 @@
   grid-template-rows: auto minmax(64px, 1fr) auto auto;
   gap: 15px;
   min-height: 268px;
-  padding: 24px;
+  padding: 24px 26px;
 }
 
 .project-card.selected {
@@ -16,7 +16,7 @@
   background:
     linear-gradient(90deg, rgba(24, 13, 5, 0.92) 0%, rgba(87, 55, 14, 0.52) 48%, rgba(209, 154, 50, 0.28) 100%),
     var(--panel);
-  box-shadow: inset 0 0 0 1px var(--gold), 0 0 24px rgba(209, 154, 50, 0.18);
+  box-shadow: 0 0 24px rgba(209, 154, 50, 0.18);
 }
 
 .project-card .card-title-block { grid-column: 1 / -1; }
@@ -48,6 +48,7 @@
   align-items: flex-end;
   align-self: start;
   justify-self: end;
+  min-width: 128px;
   gap: 10px;
 }
 
@@ -75,4 +76,22 @@
   align-self: end;
   justify-content: flex-start;
   margin-top: 0;
+}
+
+.project-card .play-button,
+.project-card .secondary-button {
+  width: 100%;
+  min-width: 0;
+  padding: 0 14px;
+  overflow: hidden;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-aspect-mount-disabled {
+  opacity: 0.42;
+  filter: grayscale(100%);
 }
