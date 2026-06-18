@@ -62,7 +62,7 @@ for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-python3 -m pip install --upgrade pyinstaller certifi "pywebview[qt]"
+python3 -m pip install --upgrade pyinstaller certifi "pywebview[qt]==6.2.1"
 python3 -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
@@ -73,7 +73,9 @@ The workflow then assembles an AppDir with:
 - `packaging/appimage/io.github.xander_haj.Z3RLauncher.desktop`
 - `resources/icons/128x128.png`
 
-The workflow emits `Z3R-Launcher-linux-x64.AppImage`.
+The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage wrapper forces
+pywebview's Qt backend so the portable build does not depend on host WebKitGTK
+helper processes.
 
 ### macOS DMGs
 
@@ -90,8 +92,9 @@ into a DMG staging folder with an `/Applications` shortcut, then creates the com
 
 The Flatpak manifest is `packaging/flatpak/io.github.xander_haj.Z3RLauncher.yml`.
 It installs the Python package, static UI, resources, and bundled-tool metadata into
-`/app/share/z3r-launcher`, installs the GTK-backed pywebview dependency into `/app`,
-then runs `/usr/bin/python3 -m z3r_launcher`.
+`/app/share/z3r-launcher`, installs pywebview into `/app`, and uses the GNOME SDK's
+system PyGObject/WebKitGTK stack instead of replacing it with pip-managed PyGObject.
+It then runs `/usr/bin/python3 -m z3r_launcher`.
 
 The Flatpak uses the GNOME SDK runtime so Steam Deck and other Flatpak users can run the
 launcher-managed Git, Python, venv, and pip path inside the sandbox instead of installing
@@ -117,7 +120,7 @@ installing those dependencies separately.
 Build the executable and setup package:
 
 ```powershell
-python -m pip install --upgrade pyinstaller certifi pywebview
+python -m pip install --upgrade pyinstaller certifi "pywebview==6.2.1"
 python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 copy dist\z3r-launcher.exe dist\Z3R-Launcher-windows-x64.exe
 $repoRoot = (Get-Location).Path
@@ -161,7 +164,10 @@ Windows:
 - Windows Terminal or another terminal app for running setup commands
 
 Prebuilt Windows releases include bundled portable Git, Python, TCC, and SDL2 for the
-launcher-managed setup path. MSBuild is still required if you choose the Visual Studio build route.
+launcher-managed setup path. Release builds download the pinned Python package first;
+if NuGet has a transient runner TLS failure, the toolkit script falls back to the
+Python installed by `actions/setup-python`. MSBuild is still required if you choose
+the Visual Studio build route.
 
 ## Launcher Updates
 

@@ -8,6 +8,9 @@ from PyInstaller.utils.hooks import collect_submodules
 
 root = Path.cwd()
 hiddenimports = ["tkinter", "tkinter.filedialog", "certifi"] + collect_submodules("webview")
+
+if sys.platform.startswith("linux"):
+    hiddenimports += collect_submodules("PyQt6")
 datas = [
     (str(root / "src"), "src"),
     (str(root / "resources"), "resources"),

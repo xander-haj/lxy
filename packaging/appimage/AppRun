@@ -5,4 +5,5 @@ appdir="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
 
 export APPDIR="${appdir}"
 export PATH="${appdir}/usr/bin:${PATH:-}"
+export Z3R_LAUNCHER_WEBVIEW_GUI="${Z3R_LAUNCHER_WEBVIEW_GUI:-qt}"
 exec "${appdir}/usr/bin/z3r-launcher" "$@"
