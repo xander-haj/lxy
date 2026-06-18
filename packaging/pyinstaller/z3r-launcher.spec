@@ -32,11 +32,19 @@ LINUX_QT_EXCLUDES = [
     "qtpy",
     "webview.platforms.qt",
 ]
+LINUX_WEBVIEW_SUBMODULE_EXCLUDES = [
+    "webview.platforms.android",
+    "webview.platforms.qt",
+]
 
 
 def include_webview_submodule(name):
     """Return True when a pywebview submodule belongs in the frozen launcher."""
-    return not (linux and name == "webview.platforms.qt")
+    if not linux:
+        return True
+    return not any(
+        name == excluded or name.startswith(f"{excluded}.") for excluded in LINUX_WEBVIEW_SUBMODULE_EXCLUDES
+    )
 
 
 def require_linux_gtk_stack():
@@ -53,7 +61,10 @@ def require_linux_gtk_stack():
             gi.require_version("WebKit2", "4.0")
             gi.require_version("Soup", "2.4")
     except (ImportError, ValueError) as error:
-        message = "Linux PyInstaller builds require PyGObject, GTK 3, and WebKitGTK 4.1 or 4.0."
+        message = (
+            "Linux PyInstaller builds require PyGObject, GTK 3, and WebKitGTK 4.1 or 4.0. "
+            "Run the Linux build with .packaging-venv/bin/python created from /usr/bin/python3."
+        )
         raise SystemExit(message) from error
 
 

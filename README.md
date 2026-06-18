@@ -65,10 +65,9 @@ The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImage
 sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0
 sudo apt install gir1.2-webkit2-4.1 libwebkit2gtk-4.1-0 || \
   sudo apt install gir1.2-webkit2-4.0 libwebkit2gtk-4.0-37
-python3 -m venv --system-site-packages .packaging-venv
-. .packaging-venv/bin/activate
-python -m pip install --upgrade pyinstaller certifi "pywebview==6.2.1"
-python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
+/usr/bin/python3 -m venv --system-site-packages .packaging-venv
+.packaging-venv/bin/python -m pip install --upgrade pyinstaller certifi "pywebview==6.2.1"
+.packaging-venv/bin/python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
 The workflow then assembles an AppDir with:
