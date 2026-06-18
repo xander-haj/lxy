@@ -10,9 +10,10 @@ specifically want to build the launcher from source.
 ## App Overview
 
 The launcher is now Python-only: a plain HTML/CSS/JavaScript frontend in `src/` and a
-standard-library Python backend in `z3r_launcher/`. The Python process serves the UI on
-localhost, opens it in the user's normal browser, and exposes the same command surface the
-frontend uses for scanning, setup actions, INI editing, updates, and launching games.
+Python backend in `z3r_launcher/`. The Python process serves the UI on localhost, opens it
+in a native pywebview app window, and exposes the same command surface the frontend uses
+for scanning, setup actions, INI editing, updates, and launching games. If pywebview is
+unavailable, the launcher falls back to the user's normal browser.
 
 Main features:
 
@@ -38,15 +39,18 @@ The source checkout does not require Node.js, npm, Rust, Cargo, or Tauri.
 Requirements:
 
 - Python 3.10 or newer
+- Python packages from `requirements.txt`
 - Git, Python venv support, and Make/SDL2 or Windows build tools only for native source builds
 
 Run from the repository root:
 
 ```sh
+python3 -m pip install -r requirements.txt
 python3 -m z3r_launcher
 ```
 
-The command starts a localhost server and opens the launcher in your default browser.
+The command starts a localhost server and opens the launcher in a standalone app window.
+Set `Z3R_LAUNCHER_OPEN_BROWSER=1` to use the old default-browser window for debugging.
 
 ## Build Packages
 
@@ -58,7 +62,7 @@ for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-python3 -m pip install --upgrade pyinstaller certifi
+python3 -m pip install --upgrade pyinstaller certifi "pywebview[qt]"
 python3 -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
@@ -86,7 +90,8 @@ into a DMG staging folder with an `/Applications` shortcut, then creates the com
 
 The Flatpak manifest is `packaging/flatpak/io.github.xander_haj.Z3RLauncher.yml`.
 It installs the Python package, static UI, resources, and bundled-tool metadata into
-`/app/share/z3r-launcher`, then runs `/usr/bin/python3 -m z3r_launcher`.
+`/app/share/z3r-launcher`, installs the GTK-backed pywebview dependency into `/app`,
+then runs `/usr/bin/python3 -m z3r_launcher`.
 
 The Flatpak uses the GNOME SDK runtime so Steam Deck and other Flatpak users can run the
 launcher-managed Git, Python, venv, and pip path inside the sandbox instead of installing
@@ -112,7 +117,7 @@ installing those dependencies separately.
 Build the executable and setup package:
 
 ```powershell
-python -m pip install --upgrade pyinstaller certifi
+python -m pip install --upgrade pyinstaller certifi pywebview
 python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 copy dist\z3r-launcher.exe dist\Z3R-Launcher-windows-x64.exe
 $repoRoot = (Get-Location).Path
