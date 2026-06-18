@@ -244,7 +244,7 @@ jobs:
             -volname "Z3R Launcher" \
             -fs HFS+ \
             -size "${size_mb}m" \
-            -format UDRW \
+            -type UDIF \
             "${rw_dmg}"
           hdiutil attach "${rw_dmg}" -mountpoint "${mount_dir}" -nobrowse -noautoopen
           ditto "${staging_dir}/Z3R Launcher.app" "${mount_dir}/Z3R Launcher.app"
