@@ -77,7 +77,9 @@ function buildProjectCard(candidate, helpers) {
   const { state, selectProject } = helpers;
   const card = document.createElement("article");
   const isPlayable = candidate.status === "ready" && Boolean(candidate.executable_path);
-  card.className = `project-card ${candidate.path === state.selectedPath ? "selected" : ""} ${isPlayable ? "" : "not-playable"}`;
+  const selectedClass = candidate.path === state.selectedPath ? "selected" : "";
+  const playableClass = isPlayable ? "" : "not-playable";
+  card.className = `project-card ${selectedClass} ${playableClass}`;
   card.addEventListener("click", () => selectProject(candidate.path));
 
   // Status pill colors derive from the backend status string; unknown statuses fall back to
@@ -97,6 +99,7 @@ function buildProjectCard(candidate, helpers) {
     patchButton: sourcePatchButtonMarkup(candidate, isPlayable),
     repoButton: repoButtonMarkup(candidate, isPlayable),
     disabledUntilPlayable: disabledUntilPlayableAttribute(isPlayable),
+    linkSpriteAttributes: linkSpriteButtonAttributes(candidate),
   });
 
   wireCardButtons(card, candidate, helpers);
@@ -121,7 +124,7 @@ function disableCardAspectControls(mountElement) {
 
 // Centralizes the card HTML so wireCardButtons can stay focused on event wiring. The
 // card now has FOUR grid rows: status/actions, title-block, card-config-actions
-// (aspect row + features/controls), and card-setup-actions (environment + randomizer).
+// (aspect row + feature editors), and card-setup-actions (environment + randomizer).
 function buildCardMarkup({
   statusClass,
   statusLabel,
@@ -131,6 +134,7 @@ function buildCardMarkup({
   patchButton,
   repoButton,
   disabledUntilPlayable,
+  linkSpriteAttributes,
 }) {
   return `
     <span class="status ${statusClass}">${statusLabel}</span>
@@ -146,6 +150,7 @@ function buildCardMarkup({
     <div class="card-config-actions">
       <div class="card-aspect-mount"></div>
       <div class="card-config-button-row">
+        <button class="secondary-button link-sprite-button" type="button" ${linkSpriteAttributes}>Link Sprite</button>
         <button class="secondary-button features-button" type="button" ${disabledUntilPlayable}>Features</button>
         <button class="secondary-button controls-button" type="button" ${disabledUntilPlayable}>Controls</button>
       </div>
@@ -177,6 +182,12 @@ function wireCardButtons(card, candidate, helpers) {
     event.stopPropagation();
     await selectProject(candidate.path);
     showView("controls");
+  });
+
+  card.querySelector(".link-sprite-button").addEventListener("click", async (event) => {
+    event.stopPropagation();
+    await selectProject(candidate.path);
+    showView("link-sprite");
   });
 
   card.querySelector(".features-button").addEventListener("click", async (event) => {
@@ -217,20 +228,29 @@ function disabledUntilPlayableAttribute(isPlayable) {
   return isPlayable ? "" : "disabled";
 }
 
+function linkSpriteButtonAttributes(candidate) {
+  return candidate.link_sprite_editor_available
+    ? ""
+    : 'disabled title="assets/sprite_sheets.py was not found"';
+}
+
 function sourcePatchButtonMarkup(candidate, isPlayable) {
   const labels = {
     makefile: "Patch Makefile",
     solution: "Patch SLN",
   };
   const label = labels[candidate.source_patch_needed];
+  const disabled = disabledUntilPlayableAttribute(isPlayable);
 
   return label
-    ? `<button class="secondary-button source-patch-button" type="button" ${disabledUntilPlayableAttribute(isPlayable)}>${label}</button>`
+    ? `<button class="secondary-button source-patch-button" type="button" ${disabled}>${label}</button>`
     : "";
 }
 
 function repoButtonMarkup(candidate, isPlayable) {
+  const disabled = disabledUntilPlayableAttribute(isPlayable);
+
   return candidate.git_repo
-    ? `<button class="secondary-button repo-update-button" type="button" ${disabledUntilPlayableAttribute(isPlayable)}>Open Repo</button>`
+    ? `<button class="secondary-button repo-update-button" type="button" ${disabled}>Open Repo</button>`
     : "";
 }

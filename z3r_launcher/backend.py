@@ -20,6 +20,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import __version__
+from .link_sprite_editor import (
+    LinkSpritePaletteError,
+    read_link_sprite_palette as read_link_sprite_palette_file,
+    write_link_sprite_palette as write_link_sprite_palette_file,
+)
 
 
 APP_ID = "io.github.xander_haj.Z3RLauncher"
@@ -589,6 +594,9 @@ class LauncherBackend:
             "store_msu_paths": self.store_msu_paths,
             "install_feature_asset": self.install_feature_asset,
             "read_sprite_preview": self.read_sprite_preview,
+            "read_link_sprite_palette": self.read_link_sprite_palette,
+            "save_link_sprite_palette": self.save_link_sprite_palette,
+            "build_link_sprite_assets": self.build_link_sprite_assets,
             "apply_snesrev_makefile_patch": self.apply_snesrev_makefile_patch,
             "apply_snesrev_solution_patch": self.apply_snesrev_solution_patch,
             "stored_rom_status": self.stored_rom_status,
@@ -915,6 +923,49 @@ class LauncherBackend:
             "pixel_data": list(pixel_data),
             "palette_data": list(palette_data),
         }
+
+    def read_link_sprite_palette(self, project_path: str) -> dict[str, Any]:
+        try:
+            return read_link_sprite_palette_file(Path(project_path))
+        except LinkSpritePaletteError as error:
+            raise LauncherError(str(error)) from error
+        except OSError as error:
+            raise LauncherError(f"Could not read Link sprite palette: {error}") from error
+
+    def save_link_sprite_palette(
+        self,
+        project_path: str,
+        values: list[Any],
+        active: bool = True,
+    ) -> dict[str, Any]:
+        try:
+            snapshot = write_link_sprite_palette_file(Path(project_path), values, active)
+        except LinkSpritePaletteError as error:
+            raise LauncherError(str(error)) from error
+        except OSError as error:
+            raise LauncherError(f"Could not write Link sprite palette: {error}") from error
+        snapshot["message"] = (
+            "Link sprite palette override saved."
+            if active
+            else "Link sprite palette override disabled."
+        )
+        return snapshot
+
+    def build_link_sprite_assets(self, project_path: str) -> dict[str, Any]:
+        project = Path(project_path)
+        python = venv_python(project / ".venv") or venv_python(project / "venv")
+        if not python:
+            raise LauncherError("Create a venv before rebuilding Link sprite assets.")
+        if not (project / "assets" / "restool.py").is_file():
+            raise LauncherError(
+                f"The selected project does not contain assets/restool.py: {display_path(project)}"
+            )
+        return run_command(
+            display_path(python),
+            ["assets/restool.py"],
+            project,
+            "Link sprite asset file rebuilt.",
+        )
 
     def read_randomizer_setup(self, project_path: str) -> dict[str, Any]:
         project = Path(project_path)
@@ -1267,6 +1318,7 @@ def inspect_candidate(path: Path, owner: str | None) -> dict[str, Any] | None:
     has_makefile = (path / "Makefile").exists()
     has_solution = (path / "Zelda3.sln").exists()
     has_source = has_makefile or has_solution or (path / "run_with_tcc.bat").exists()
+    link_sprite_editor_available = (path / "assets" / "sprite_sheets.py").is_file()
     git_repo = (path / ".git").exists()
     if not asset_path and not executable_path and not has_source:
         return None
@@ -1296,6 +1348,7 @@ def inspect_candidate(path: Path, owner: str | None) -> dict[str, Any] | None:
         "snesrev_makefile_patch_applied": makefile_applied,
         "snesrev_solution_patch_applied": solution_applied,
         "source_patch_needed": source_patch_for_platform(is_snesrev, has_solution, makefile_applied, solution_applied),
+        "link_sprite_editor_available": link_sprite_editor_available,
         "status": status,
         "notes": notes,
     }
@@ -2533,7 +2586,7 @@ def is_safe_repo_path(path: str) -> bool:
 
 def fetch_latest_release(update_dir: Path) -> dict[str, Any]:
     release_json = update_dir / "latest-release.json"
-    download_url_to_file("https://api.github.com/repos/xander-haj/lxy/releases/latest", release_json, github_api=True)
+    download_url_to_file("https://api.github.com/repos/xander-haj/Z3R-Launcher/releases/latest", release_json, github_api=True)
     try:
         release = json.loads(release_json.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:

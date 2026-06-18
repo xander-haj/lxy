@@ -8,6 +8,7 @@ import { connectProjectCards } from "./project-cards.js";
 import { connectEnvironmentScreen } from "./environment-screen.js";
 import { connectControlsScreen } from "./controls-screen.js";
 import { connectFeaturesScreen } from "./features-screen.js";
+import { connectLinkSpriteEditor } from "./link-sprite-editor.js";
 import { checksReady, updateEnvironmentActions } from "./environment-actions.js";
 import { connectRepoUpdateManager } from "./repo-update-manager.js";
 import { connectLauncherUpdateChecker } from "./launcher-update-checker.js";
@@ -147,6 +148,9 @@ function showView(view) {
   if (view === "features") {
     featuresScreen.refresh();
   }
+  if (view === "link-sprite") {
+    linkSpriteEditor.refresh();
+  }
 }
 
 // Stores the selected project path and refreshes both the card grid (selected style)
@@ -253,7 +257,9 @@ function selectedProjectPayload() {
 function extractAssetRequiredCheckIds() {
   const packagedLinuxDownload = Boolean(state.runtimeInfo?.downloaded_linux_game_executable);
   const baseIds = ["python", "venv", "python-dependencies", "rom"];
-  return packagedLinuxDownload ? [...baseIds, "game-executable-download"] : [...baseIds, "make", "c-compiler", "sdl2-dev"];
+  return packagedLinuxDownload
+    ? [...baseIds, "game-executable-download"]
+    : [...baseIds, "make", "c-compiler", "sdl2-dev"];
 }
 
 // Re-runs the backend sibling scan, keeps the selected project alive when it still
@@ -419,6 +425,7 @@ const projectCards = connectProjectCards(helpers);
 const environmentScreen = connectEnvironmentScreen(helpers);
 const controlsScreen = connectControlsScreen(helpers);
 const featuresScreen = connectFeaturesScreen(helpers);
+const linkSpriteEditor = connectLinkSpriteEditor(helpers);
 const repoUpdateManager = connectRepoUpdateManager(helpers);
 helpers.openRepoUpdate = repoUpdateManager.open;
 connectScanPathManager(helpers);
