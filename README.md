@@ -75,7 +75,9 @@ The workflow then assembles an AppDir with:
 
 The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage wrapper forces
 pywebview's Qt backend so the portable build does not depend on host WebKitGTK
-helper processes.
+helper processes. It also defaults Qt to the XCB platform plugin and software
+rendering so Wayland systems without working EGL/Vulkan can still open the
+launcher instead of aborting during QtWebEngine startup.
 
 ### macOS DMGs
 
