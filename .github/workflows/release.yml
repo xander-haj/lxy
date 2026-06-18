@@ -87,13 +87,7 @@ jobs:
             curl \
             file \
             gir1.2-gtk-3.0 \
-            gobject-introspection \
-            libcairo2-dev \
-            libgirepository1.0-dev \
             libfuse2 \
-            libgtk-3-0 \
-            libgtk-3-dev \
-            pkg-config \
             python3-gi \
             python3-gi-cairo \
             python3-venv \
