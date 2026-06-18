@@ -29,6 +29,11 @@ for libdir in "${appdir}/usr/lib/"*-linux-gnu; do
     if [ -d "${libdir}/gio/modules" ]; then
       export GIO_MODULE_DIR="${libdir}/gio/modules"
     fi
+    if [ -d "${libdir}/webkit2gtk-4.1" ]; then
+      export WEBKIT_EXEC_PATH="${libdir}/webkit2gtk-4.1"
+    elif [ -d "${libdir}/webkit2gtk-4.0" ]; then
+      export WEBKIT_EXEC_PATH="${libdir}/webkit2gtk-4.0"
+    fi
     break
   fi
 done
@@ -50,4 +55,5 @@ if [ -f "${appdir}/usr/etc/fonts/fonts.conf" ]; then
   export FONTCONFIG_FILE="${appdir}/usr/etc/fonts/fonts.conf"
 fi
 
+cd "${appdir}/usr"
 exec "${appdir}/usr/bin/z3r-launcher" "$@"

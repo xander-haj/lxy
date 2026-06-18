@@ -91,8 +91,10 @@ The AppImage bundler fails the build if required `WebKit2`, `JavaScriptCore`, `S
 
 The AppImage also embeds GTK/WebKitGTK typelibs in the PyInstaller executable so onefile
 extraction can resolve the same `WebKit2` namespace as the outer AppDir. The runtime
-copy step intentionally excludes GLVND, Mesa, Vulkan, and DRM driver libraries; those
-must come from the host distribution so rolling systems use their own graphics stack.
+copy step relocates WebKitGTK helper-process paths so `WebKitNetworkProcess` and
+`WebKitWebProcess` are spawned from the AppDir instead of `/usr/lib`. It intentionally
+excludes GLVND, Mesa, Vulkan, and DRM driver libraries; those must come from the host
+distribution so rolling systems use their own graphics stack.
 
 ### macOS DMGs
 

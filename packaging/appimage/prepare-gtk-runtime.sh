@@ -40,6 +40,14 @@ copy_tree_contents() {
   fi
 }
 
+relocate_usr_paths() {
+  local target="$1"
+
+  if [ -f "${target}" ]; then
+    perl -0pi -e 's#/usr#././#g' "${target}"
+  fi
+}
+
 should_copy_shared_object() {
   local source="$1"
   local filename
@@ -131,6 +139,37 @@ copy_webkit_runtime() {
   fi
 }
 
+relocate_webkit_runtime() {
+  local api="$1"
+  local target
+
+  for target in "${lib_root}/libwebkit2gtk-${api}.so"* "${lib_root}/libjavascriptcoregtk-${api}.so"*; do
+    if [ -e "${target}" ]; then
+      relocate_usr_paths "${target}"
+    fi
+  done
+
+  if [ -d "${lib_root}/webkit2gtk-${api}" ]; then
+    find "${lib_root}/webkit2gtk-${api}" -type f -print |
+      while read -r target; do
+        relocate_usr_paths "${target}"
+      done
+  fi
+}
+
+require_relocated_webkit_runtime() {
+  local api="$1"
+  local target
+  local absolute_path="/usr/lib/${multiarch}/webkit2gtk-${api}"
+
+  for target in "${lib_root}/libwebkit2gtk-${api}.so"*; do
+    if [ -e "${target}" ] && grep -a -q "${absolute_path}" "${target}"; then
+      echo "WebKitGTK still contains non-relocatable helper path: ${absolute_path}" >&2
+      exit 1
+    fi
+  done
+}
+
 require_typelib() {
   local namespace="$1"
   local search_root="$2"
@@ -169,6 +208,10 @@ copy_matching_shared_objects "/usr/lib/${multiarch}/libgtk-3.so"* || true
 
 copy_webkit_runtime "4.1"
 copy_webkit_runtime "4.0"
+relocate_webkit_runtime "4.1"
+relocate_webkit_runtime "4.0"
+require_relocated_webkit_runtime "4.1"
+require_relocated_webkit_runtime "4.0"
 copy_tree_contents "/usr/lib/${multiarch}/girepository-1.0" "${lib_root}/girepository-1.0"
 copy_tree_contents "/usr/lib/girepository-1.0" "${lib_root}/girepository-1.0"
 copy_tree_contents "${lib_root}/girepository-1.0" "${appdir}/usr/lib/girepository-1.0"
