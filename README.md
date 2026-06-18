@@ -62,7 +62,7 @@ for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt install curl file libfuse2 python3-gi python3-gi-cairo python3-venv wget xz-utils gir1.2-gtk-3.0
 sudo apt install gir1.2-webkit2-4.1 libwebkit2gtk-4.1-0 || \
   sudo apt install gir1.2-webkit2-4.0 libwebkit2gtk-4.0-37
 /usr/bin/python3 -m venv --system-site-packages .packaging-venv
@@ -86,6 +86,8 @@ GTK backend and bundles the WebKitGTK helper runtime that the standalone window
 needs, including `gi`, `WebKitNetworkProcess`, typelibs, GTK modules, glib schemas,
 and fontconfig data. It sets `Z3R_LAUNCHER_REQUIRE_WEBVIEW=1` and `PYWEBVIEW_GUI=gtk`,
 so startup failures stay visible instead of falling back to Qt or the default browser.
+The AppImage bundler fails the build if required `WebKit2`, `JavaScriptCore`, `Soup`,
+`Gtk`, or `Gdk` typelibs are missing from the AppDir.
 
 ### macOS DMGs
 

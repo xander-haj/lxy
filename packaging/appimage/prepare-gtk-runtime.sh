@@ -30,6 +30,16 @@ copy_tree() {
   fi
 }
 
+copy_tree_contents() {
+  local source="$1"
+  local destination="$2"
+
+  if [ -d "${source}" ]; then
+    mkdir -p "${destination}"
+    cp -a "${source}/." "${destination}/"
+  fi
+}
+
 copy_shared_object() {
   local source="$1"
 
@@ -93,6 +103,36 @@ copy_webkit_runtime() {
   fi
 }
 
+require_typelib() {
+  local namespace="$1"
+  local search_root="$2"
+
+  if [ ! -f "${search_root}/${namespace}.typelib" ]; then
+    echo "Missing required GObject typelib: ${namespace}.typelib" >&2
+    echo "Searched: ${search_root}" >&2
+    find "${appdir}/usr/lib" -path "*/girepository-1.0/*.typelib" -print | sort >&2 || true
+    exit 1
+  fi
+}
+
+detect_webkit_api() {
+  local search_root="$1"
+
+  if [ -f "${search_root}/WebKit2-4.1.typelib" ]; then
+    echo "4.1"
+    return
+  fi
+  if [ -f "${search_root}/WebKit2-4.0.typelib" ]; then
+    echo "4.0"
+    return
+  fi
+
+  echo "Missing required GObject typelib: WebKit2-4.1.typelib or WebKit2-4.0.typelib" >&2
+  echo "Searched: ${search_root}" >&2
+  find "${appdir}/usr/lib" -path "*/girepository-1.0/*.typelib" -print | sort >&2 || true
+  exit 1
+}
+
 copy_matching_shared_objects "/usr/lib/${multiarch}/libwebkit2gtk-4.1.so"* || true
 copy_matching_shared_objects "/usr/lib/${multiarch}/libjavascriptcoregtk-4.1.so"* || true
 copy_matching_shared_objects "/usr/lib/${multiarch}/libwebkit2gtk-4.0.so"* || true
@@ -101,12 +141,27 @@ copy_matching_shared_objects "/usr/lib/${multiarch}/libgtk-3.so"* || true
 
 copy_webkit_runtime "4.1"
 copy_webkit_runtime "4.0"
-copy_tree "/usr/lib/${multiarch}/girepository-1.0" "${lib_root}/girepository-1.0"
+copy_tree_contents "/usr/lib/${multiarch}/girepository-1.0" "${lib_root}/girepository-1.0"
+copy_tree_contents "/usr/lib/girepository-1.0" "${lib_root}/girepository-1.0"
+copy_tree_contents "${lib_root}/girepository-1.0" "${appdir}/usr/lib/girepository-1.0"
 copy_tree "/usr/lib/${multiarch}/gtk-3.0" "${lib_root}/gtk-3.0"
 copy_tree "/usr/lib/${multiarch}/gdk-pixbuf-2.0" "${lib_root}/gdk-pixbuf-2.0"
 copy_tree "/etc/fonts" "${appdir}/usr/etc/fonts"
 copy_tree "/usr/share/glib-2.0" "${appdir}/usr/share/glib-2.0"
 copy_tree "/usr/share/fontconfig" "${appdir}/usr/share/fontconfig"
+
+webkit_api="$(detect_webkit_api "${lib_root}/girepository-1.0")"
+if [ "${webkit_api}" = "4.1" ]; then
+  soup_api="3.0"
+else
+  soup_api="2.4"
+fi
+
+require_typelib "Gtk-3.0" "${lib_root}/girepository-1.0"
+require_typelib "Gdk-3.0" "${lib_root}/girepository-1.0"
+require_typelib "WebKit2-${webkit_api}" "${lib_root}/girepository-1.0"
+require_typelib "JavaScriptCore-${webkit_api}" "${lib_root}/girepository-1.0"
+require_typelib "Soup-${soup_api}" "${lib_root}/girepository-1.0"
 
 if command -v glib-compile-schemas >/dev/null 2>&1 && [ -d "${appdir}/usr/share/glib-2.0/schemas" ]; then
   glib-compile-schemas "${appdir}/usr/share/glib-2.0/schemas"
