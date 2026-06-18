@@ -89,6 +89,11 @@ so startup failures stay visible instead of falling back to Qt or the default br
 The AppImage bundler fails the build if required `WebKit2`, `JavaScriptCore`, `Soup`,
 `Gtk`, or `Gdk` typelibs are missing from the AppDir.
 
+The AppImage also embeds GTK/WebKitGTK typelibs in the PyInstaller executable so onefile
+extraction can resolve the same `WebKit2` namespace as the outer AppDir. The runtime
+copy step intentionally excludes GLVND, Mesa, Vulkan, and DRM driver libraries; those
+must come from the host distribution so rolling systems use their own graphics stack.
+
 ### macOS DMGs
 
 macOS releases are built natively on GitHub's Intel and Apple Silicon macOS runners:

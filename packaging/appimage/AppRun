@@ -10,25 +10,30 @@ export Z3R_LAUNCHER_WEBVIEW_GUI=gtk
 export PYWEBVIEW_GUI=gtk
 typelib_path=""
 
+append_typelib_path() {
+  if [ -d "$1" ]; then
+    if [ -n "${typelib_path}" ]; then
+      typelib_path="${typelib_path}:$1"
+    else
+      typelib_path="$1"
+    fi
+  fi
+}
+
 for libdir in "${appdir}/usr/lib/"*-linux-gnu; do
   if [ -d "${libdir}" ]; then
     export LD_LIBRARY_PATH="${libdir}:${appdir}/usr/lib:${LD_LIBRARY_PATH:-}"
     export GDK_PIXBUF_MODULEDIR="${libdir}/gdk-pixbuf-2.0/2.10.0/loaders"
     export GDK_PIXBUF_MODULE_FILE="${libdir}/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-    if [ -d "${libdir}/girepository-1.0" ]; then
-      typelib_path="${libdir}/girepository-1.0"
+    append_typelib_path "${libdir}/girepository-1.0"
+    if [ -d "${libdir}/gio/modules" ]; then
+      export GIO_MODULE_DIR="${libdir}/gio/modules"
     fi
     break
   fi
 done
 
-if [ -d "${appdir}/usr/lib/girepository-1.0" ]; then
-  if [ -n "${typelib_path}" ]; then
-    typelib_path="${typelib_path}:${appdir}/usr/lib/girepository-1.0"
-  else
-    typelib_path="${appdir}/usr/lib/girepository-1.0"
-  fi
-fi
+append_typelib_path "${appdir}/usr/lib/girepository-1.0"
 
 if [ -n "${typelib_path}" ]; then
   export GI_TYPELIB_PATH="${typelib_path}${GI_TYPELIB_PATH:+:${GI_TYPELIB_PATH}}"

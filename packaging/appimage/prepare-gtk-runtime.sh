@@ -40,17 +40,45 @@ copy_tree_contents() {
   fi
 }
 
+should_copy_shared_object() {
+  local source="$1"
+  local filename
+
+  filename="$(basename "${source}")"
+
+  case "${source}" in
+    */dri/*|*/vulkan/*)
+      return 1
+      ;;
+  esac
+
+  case "${filename}" in
+    ld-linux-*|libBrokenLocale.so.*|libanl.so.*|libc.so.*|libdl.so.*|libm.so.*)
+      return 1
+      ;;
+    libmvec.so.*|libnsl.so.*|libpthread.so.*|libresolv.so.*|librt.so.*|libthread_db.so.*|libutil.so.*)
+      return 1
+      ;;
+    libEGL.so.*|libEGL_mesa.so.*|libGL.so.*|libGLESv1_CM.so.*|libGLESv2.so.*|libGLX.so.*)
+      return 1
+      ;;
+    libGLX_mesa.so.*|libGLdispatch.so.*|libOpenGL.so.*|libdrm.so.*|libgbm.so.*)
+      return 1
+      ;;
+    libglapi.so.*|libvulkan.so.*|libvulkan_*.so*|libVkLayer_*.so*)
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
 copy_shared_object() {
   local source="$1"
 
-  case "$(basename "${source}")" in
-    ld-linux-*|libBrokenLocale.so.*|libanl.so.*|libc.so.*|libdl.so.*|libm.so.*)
-      return
-      ;;
-    libmvec.so.*|libnsl.so.*|libpthread.so.*|libresolv.so.*|librt.so.*|libthread_db.so.*|libutil.so.*)
-      return
-      ;;
-  esac
+  if ! should_copy_shared_object "${source}"; then
+    return
+  fi
 
   if [ -e "${source}" ]; then
     cp -L "${source}" "${lib_root}/$(basename "${source}")"
@@ -146,6 +174,7 @@ copy_tree_contents "/usr/lib/girepository-1.0" "${lib_root}/girepository-1.0"
 copy_tree_contents "${lib_root}/girepository-1.0" "${appdir}/usr/lib/girepository-1.0"
 copy_tree "/usr/lib/${multiarch}/gtk-3.0" "${lib_root}/gtk-3.0"
 copy_tree "/usr/lib/${multiarch}/gdk-pixbuf-2.0" "${lib_root}/gdk-pixbuf-2.0"
+copy_tree "/usr/lib/${multiarch}/gio/modules" "${lib_root}/gio/modules"
 copy_tree "/etc/fonts" "${appdir}/usr/etc/fonts"
 copy_tree "/usr/share/glib-2.0" "${appdir}/usr/share/glib-2.0"
 copy_tree "/usr/share/fontconfig" "${appdir}/usr/share/fontconfig"
@@ -170,6 +199,12 @@ fi
 for loader in "${lib_root}/gdk-pixbuf-2.0"/*/loaders/*.so; do
   if [ -e "${loader}" ]; then
     copy_dependencies "${loader}"
+  fi
+done
+
+for module in "${lib_root}/gio/modules"/*.so; do
+  if [ -e "${module}" ]; then
+    copy_dependencies "${module}"
   fi
 done
 

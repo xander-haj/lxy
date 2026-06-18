@@ -4,6 +4,7 @@
 import os
 from pathlib import Path
 import sys
+import sysconfig
 
 import certifi
 from PyInstaller.utils.hooks import collect_all, collect_submodules
@@ -40,6 +41,7 @@ LINUX_WEBVIEW_SUBMODULE_EXCLUDES = [
     "webview.platforms.android",
     "webview.platforms.qt",
 ]
+LINUX_GIREPOSITORY_DEST = "girepository-1.0"
 
 
 def include_webview_submodule(name):
@@ -107,6 +109,47 @@ def require_linux_gtk_stack():
         raise SystemExit(message) from error
 
 
+def linux_girepository_roots():
+    """Return system GIR directories used by Ubuntu's GTK/WebKitGTK packages."""
+    roots = []
+    multiarch = sysconfig.get_config_var("MULTIARCH")
+    if multiarch:
+        roots.append(Path("/usr/lib") / multiarch / LINUX_GIREPOSITORY_DEST)
+    roots.append(Path("/usr/lib") / LINUX_GIREPOSITORY_DEST)
+    return [path for path in roots if path.is_dir()]
+
+
+def collect_linux_typelib_datas():
+    """Bundle Linux GObject typelibs so PyInstaller onefile extraction can resolve WebKit2."""
+    collected = []
+    available = set()
+    seen_names = set()
+
+    for directory in linux_girepository_roots():
+        for typelib in sorted(directory.glob("*.typelib")):
+            available.add(typelib.name)
+            if typelib.name in seen_names:
+                continue
+            seen_names.add(typelib.name)
+            collected.append((str(typelib), LINUX_GIREPOSITORY_DEST))
+
+    required = {"Gtk-3.0.typelib", "Gdk-3.0.typelib"}
+    if "WebKit2-4.1.typelib" in available:
+        required.update({"JavaScriptCore-4.1.typelib", "Soup-3.0.typelib", "WebKit2-4.1.typelib"})
+    elif "WebKit2-4.0.typelib" in available:
+        required.update({"JavaScriptCore-4.0.typelib", "Soup-2.4.typelib", "WebKit2-4.0.typelib"})
+    else:
+        required.add("WebKit2-4.1.typelib or WebKit2-4.0.typelib")
+
+    missing = sorted(name for name in required if name not in available)
+    if missing:
+        roots = ", ".join(str(path) for path in linux_girepository_roots()) or "none"
+        message = f"Linux AppImage packaging is missing required GObject typelibs: {missing}; searched: {roots}"
+        raise SystemExit(message)
+
+    return collected
+
+
 hiddenimports = ["tkinter", "tkinter.filedialog", "certifi"]
 hiddenimports += collect_submodules("webview", filter=include_webview_submodule)
 binaries = []
@@ -121,7 +164,7 @@ if linux:
     reexec_with_linux_packaging_python()
     require_linux_gtk_stack()
     gi_datas, gi_binaries, gi_hiddenimports = collect_all("gi", on_error="raise")
-    datas += gi_datas
+    datas += gi_datas + collect_linux_typelib_datas()
     binaries += gi_binaries
     hiddenimports += gi_hiddenimports + LINUX_GTK_HIDDEN_IMPORTS
     excludes += LINUX_QT_EXCLUDES

@@ -21,6 +21,7 @@ HEARTBEAT_TIMEOUT_SECONDS = 45
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
 GTK_WEBVIEW_GUI = "gtk"
 GTK_WEBVIEW_MODULE = "webview.platforms.gtk"
+GIREPOSITORY_DIR = "girepository-1.0"
 
 
 class ServerState:
@@ -247,6 +248,44 @@ def should_require_linux_gtk_webview() -> bool:
     return should_require_webview() and sys.platform.startswith("linux")
 
 
+def prepend_existing_env_paths(name: str, candidates: list[Path]) -> None:
+    """Prepend existing directories to a path-like environment variable without duplicating entries."""
+    existing = [value for value in os.environ.get(name, "").split(os.pathsep) if value]
+    additions: list[str] = []
+    for candidate in candidates:
+        if candidate.is_dir():
+            value = str(candidate)
+            if value not in existing and value not in additions:
+                additions.append(value)
+    if additions:
+        os.environ[name] = os.pathsep.join(additions + existing)
+
+
+def linux_girepository_candidates() -> list[Path]:
+    """Return AppImage and PyInstaller locations that can contain bundled GObject typelibs."""
+    candidates: list[Path] = []
+    meipass = getattr(sys, "_MEIPASS", "")
+    if meipass:
+        base = Path(meipass)
+        candidates.append(base / GIREPOSITORY_DIR)
+        candidates.append(base / "usr" / "lib" / GIREPOSITORY_DIR)
+        candidates.extend((base / "usr" / "lib").glob(f"*/{GIREPOSITORY_DIR}"))
+
+    appdir = os.environ.get("APPDIR", "")
+    if appdir:
+        base = Path(appdir)
+        candidates.append(base / "usr" / "lib" / GIREPOSITORY_DIR)
+        candidates.extend((base / "usr" / "lib").glob(f"*/{GIREPOSITORY_DIR}"))
+
+    return candidates
+
+
+def prepare_linux_gtk_typelib_paths() -> None:
+    """Expose bundled Linux GTK/WebKitGTK typelibs before pywebview imports its GTK backend."""
+    if should_require_linux_gtk_webview():
+        prepend_existing_env_paths("GI_TYPELIB_PATH", linux_girepository_candidates())
+
+
 def require_linux_gtk_backend() -> None:
     if not should_require_linux_gtk_webview():
         return
@@ -255,6 +294,7 @@ def require_linux_gtk_backend() -> None:
     if gui != GTK_WEBVIEW_GUI:
         raise LauncherError("Packaged Linux releases require the GTK pywebview backend; Qt is disabled.")
 
+    prepare_linux_gtk_typelib_paths()
     try:
         importlib.import_module(GTK_WEBVIEW_MODULE)
     except Exception as error:
@@ -279,6 +319,7 @@ def start_server_thread(server: ThreadingHTTPServer) -> threading.Thread:
 
 
 def import_webview() -> Any:
+    prepare_linux_gtk_typelib_paths()
     try:
         import webview
     except ImportError as error:
