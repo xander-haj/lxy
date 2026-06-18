@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller packaging recipe for the standalone Z3R Launcher desktop executable."""
 
+import os
 from pathlib import Path
 import sys
 
@@ -10,6 +11,9 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 root = Path.cwd()
 linux = sys.platform.startswith("linux")
+REEXEC_ENV = "Z3R_LAUNCHER_PYINSTALLER_REEXEC"
+SPEC_PATH = root / "packaging" / "pyinstaller" / "z3r-launcher.spec"
+LINUX_PACKAGING_PYTHON = root / ".packaging-venv" / "bin" / "python"
 
 LINUX_GTK_HIDDEN_IMPORTS = [
     "gi",
@@ -47,6 +51,28 @@ def include_webview_submodule(name):
     )
 
 
+def reexec_with_linux_packaging_python():
+    """Restart PyInstaller with the system-Python venv when an older workflow uses hosted Python."""
+    if not linux or os.environ.get(REEXEC_ENV) or not LINUX_PACKAGING_PYTHON.is_file():
+        return
+
+    try:
+        current_python = Path(sys.executable).resolve()
+        packaging_python = LINUX_PACKAGING_PYTHON.resolve()
+    except OSError:
+        current_python = Path(sys.executable)
+        packaging_python = LINUX_PACKAGING_PYTHON
+
+    if current_python == packaging_python:
+        return
+
+    os.environ[REEXEC_ENV] = "1"
+    os.execv(
+        str(packaging_python),
+        [str(packaging_python), "-m", "PyInstaller", "--clean", str(SPEC_PATH)],
+    )
+
+
 def require_linux_gtk_stack():
     """Fail the Linux release build unless GTK/WebKitGTK imports match pywebview's GTK backend."""
     try:
@@ -79,6 +105,7 @@ datas = [
 excludes = []
 
 if linux:
+    reexec_with_linux_packaging_python()
     require_linux_gtk_stack()
     gi_datas, gi_binaries, gi_hiddenimports = collect_all("gi", on_error="raise")
     datas += gi_datas

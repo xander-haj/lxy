@@ -70,6 +70,9 @@ sudo apt install gir1.2-webkit2-4.1 libwebkit2gtk-4.1-0 || \
 .packaging-venv/bin/python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
+The Linux package job intentionally skips `actions/setup-python`. PyGObject comes from
+Ubuntu packages and must be consumed through the `/usr/bin/python3` packaging venv.
+
 The workflow then assembles an AppDir with:
 
 - `dist/z3r-launcher`
