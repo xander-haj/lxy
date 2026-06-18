@@ -73,11 +73,11 @@ The workflow then assembles an AppDir with:
 - `packaging/appimage/io.github.xander_haj.Z3RLauncher.desktop`
 - `resources/icons/128x128.png`
 
-The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage wrapper forces
-pywebview's Qt backend so the portable build does not depend on host WebKitGTK
-helper processes. It also defaults Qt to the XCB platform plugin and software
-rendering so Wayland systems without working EGL/Vulkan can still open the
-launcher instead of aborting during QtWebEngine startup.
+The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage wrapper opens
+the launcher in the user's default browser because native QtWebEngine can abort on
+systems without compatible EGL, GLX, or Vulkan. Users who want to try the native
+Qt webview can launch with `Z3R_LAUNCHER_APPIMAGE_NATIVE_WEBVIEW=1`; that path
+defaults Qt to XCB/software rendering and disables QtWebEngine GPU compositing.
 
 ### macOS DMGs
 

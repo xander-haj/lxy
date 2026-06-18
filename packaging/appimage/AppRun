@@ -5,15 +5,20 @@ appdir="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
 
 export APPDIR="${appdir}"
 export PATH="${appdir}/usr/bin:${PATH:-}"
-export Z3R_LAUNCHER_WEBVIEW_GUI="${Z3R_LAUNCHER_WEBVIEW_GUI:-qt}"
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb;wayland}"
-export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"
 
-chromium_flags="${QTWEBENGINE_CHROMIUM_FLAGS:-}"
-case " ${chromium_flags} " in
-  *" --disable-gpu "*) ;;
-  *) chromium_flags="${chromium_flags:+${chromium_flags} }--disable-gpu --disable-gpu-compositing" ;;
-esac
-export QTWEBENGINE_CHROMIUM_FLAGS="${chromium_flags}"
+if [ "${Z3R_LAUNCHER_APPIMAGE_NATIVE_WEBVIEW:-0}" = "1" ]; then
+  export Z3R_LAUNCHER_WEBVIEW_GUI="${Z3R_LAUNCHER_WEBVIEW_GUI:-qt}"
+  export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb;wayland}"
+  export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"
+
+  chromium_flags="${QTWEBENGINE_CHROMIUM_FLAGS:-}"
+  case " ${chromium_flags} " in
+    *" --disable-gpu "*) ;;
+    *) chromium_flags="${chromium_flags:+${chromium_flags} }--disable-gpu --disable-gpu-compositing" ;;
+  esac
+  export QTWEBENGINE_CHROMIUM_FLAGS="${chromium_flags}"
+else
+  export Z3R_LAUNCHER_OPEN_BROWSER="${Z3R_LAUNCHER_OPEN_BROWSER:-1}"
+fi
 
 exec "${appdir}/usr/bin/z3r-launcher" "$@"
