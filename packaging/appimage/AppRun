@@ -6,7 +6,8 @@ appdir="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
 export APPDIR="${appdir}"
 export PATH="${appdir}/usr/bin:${PATH:-}"
 export Z3R_LAUNCHER_REQUIRE_WEBVIEW=1
-export Z3R_LAUNCHER_WEBVIEW_GUI="${Z3R_LAUNCHER_WEBVIEW_GUI:-gtk}"
+export Z3R_LAUNCHER_WEBVIEW_GUI=gtk
+export PYWEBVIEW_GUI=gtk
 
 for libdir in "${appdir}/usr/lib/"*-linux-gnu; do
   if [ -d "${libdir}" ]; then
@@ -20,6 +21,11 @@ done
 
 if [ -d "${appdir}/usr/share/glib-2.0/schemas" ]; then
   export GSETTINGS_SCHEMA_DIR="${appdir}/usr/share/glib-2.0/schemas"
+fi
+
+if [ -f "${appdir}/usr/etc/fonts/fonts.conf" ]; then
+  export FONTCONFIG_PATH="${appdir}/usr/etc/fonts"
+  export FONTCONFIG_FILE="${appdir}/usr/etc/fonts/fonts.conf"
 fi
 
 exec "${appdir}/usr/bin/z3r-launcher" "$@"

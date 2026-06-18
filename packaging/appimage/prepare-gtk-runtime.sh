@@ -5,7 +5,7 @@ appdir="${1:?Usage: prepare-gtk-runtime.sh APPDIR}"
 multiarch="$(gcc -print-multiarch 2>/dev/null || dpkg-architecture -qDEB_HOST_MULTIARCH)"
 lib_root="${appdir}/usr/lib/${multiarch}"
 
-mkdir -p "${lib_root}" "${appdir}/usr/share" "${appdir}/lib"
+mkdir -p "${lib_root}" "${appdir}/usr/etc" "${appdir}/usr/share" "${appdir}/lib"
 
 if [ ! -e "${appdir}/lib/${multiarch}" ]; then
   ln -s "../usr/lib/${multiarch}" "${appdir}/lib/${multiarch}"
@@ -104,7 +104,9 @@ copy_webkit_runtime "4.0"
 copy_tree "/usr/lib/${multiarch}/girepository-1.0" "${lib_root}/girepository-1.0"
 copy_tree "/usr/lib/${multiarch}/gtk-3.0" "${lib_root}/gtk-3.0"
 copy_tree "/usr/lib/${multiarch}/gdk-pixbuf-2.0" "${lib_root}/gdk-pixbuf-2.0"
+copy_tree "/etc/fonts" "${appdir}/usr/etc/fonts"
 copy_tree "/usr/share/glib-2.0" "${appdir}/usr/share/glib-2.0"
+copy_tree "/usr/share/fontconfig" "${appdir}/usr/share/fontconfig"
 
 if command -v glib-compile-schemas >/dev/null 2>&1 && [ -d "${appdir}/usr/share/glib-2.0/schemas" ]; then
   glib-compile-schemas "${appdir}/usr/share/glib-2.0/schemas"

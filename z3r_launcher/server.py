@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import mimetypes
 import os
@@ -13,11 +14,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
-from .backend import LauncherBackend, LauncherError, app_data_dir, open_external_url, static_dir
+from .backend import LauncherBackend, LauncherError, app_data_dir, static_dir
 
 
 HEARTBEAT_TIMEOUT_SECONDS = 45
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
+GTK_WEBVIEW_GUI = "gtk"
+GTK_WEBVIEW_MODULE = "webview.platforms.gtk"
 
 
 class ServerState:
@@ -228,13 +231,38 @@ def should_require_webview() -> bool:
 def should_use_webview() -> bool:
     if should_require_webview():
         return True
-    return not truthy_env("Z3R_LAUNCHER_OPEN_BROWSER") and not truthy_env("Z3R_LAUNCHER_NO_WEBVIEW")
+    return not truthy_env("Z3R_LAUNCHER_NO_WEBVIEW")
 
 
-def should_open_browser() -> bool:
-    if should_require_webview():
-        return False
-    return not truthy_env("Z3R_LAUNCHER_NO_BROWSER")
+def selected_webview_gui() -> str:
+    # Prefer the launcher-specific variable because wrappers use it to document intentional backend selection.
+    gui = os.environ.get("Z3R_LAUNCHER_WEBVIEW_GUI", "").strip().lower()
+    if gui:
+        return gui
+    return os.environ.get("PYWEBVIEW_GUI", "").strip().lower()
+
+
+def should_require_linux_gtk_webview() -> bool:
+    # Linux release packages rely on GTK/WebKitGTK so they avoid QtWebEngine graphics initialization failures.
+    return should_require_webview() and sys.platform.startswith("linux")
+
+
+def require_linux_gtk_backend() -> None:
+    if not should_require_linux_gtk_webview():
+        return
+
+    gui = selected_webview_gui() or GTK_WEBVIEW_GUI
+    if gui != GTK_WEBVIEW_GUI:
+        raise LauncherError("Packaged Linux releases require the GTK pywebview backend; Qt is disabled.")
+
+    try:
+        importlib.import_module(GTK_WEBVIEW_MODULE)
+    except Exception as error:
+        message = (
+            "Packaged Linux releases require bundled PyGObject, GTK, and WebKitGTK. "
+            f"The GTK pywebview backend could not be imported: {type(error).__name__}: {error}"
+        )
+        raise LauncherError(message) from error
 
 
 def serve_until_shutdown(server: ThreadingHTTPServer) -> None:
@@ -256,14 +284,16 @@ def import_webview() -> Any:
     except ImportError as error:
         if should_require_webview():
             raise LauncherError("pywebview is required for packaged Z3R Launcher releases.") from error
-        message = "pywebview is not installed. Install pywebview or set Z3R_LAUNCHER_OPEN_BROWSER=1."
+        message = "pywebview is not installed. Install pywebview to use the standalone launcher window."
         raise LauncherError(message) from error
     return webview
 
 
 def webview_start_options() -> dict[str, Any]:
     options: dict[str, Any] = {"debug": truthy_env("Z3R_LAUNCHER_WEBVIEW_DEBUG")}
-    gui = os.environ.get("Z3R_LAUNCHER_WEBVIEW_GUI", "").strip()
+    gui = selected_webview_gui()
+    if should_require_linux_gtk_webview() and not gui:
+        gui = GTK_WEBVIEW_GUI
     if gui:
         options["gui"] = gui
     return options
@@ -271,6 +301,7 @@ def webview_start_options() -> dict[str, Any]:
 
 def open_webview_window(url: str, state: ServerState) -> None:
     webview = import_webview()
+    require_linux_gtk_backend()
     storage = app_data_dir() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
     window = webview.create_window(
@@ -284,23 +315,10 @@ def open_webview_window(url: str, state: ServerState) -> None:
     webview.start(storage_path=str(storage), private_mode=False, **webview_start_options())
 
 
-def open_browser_or_report(url: str) -> bool:
-    if should_require_webview():
-        print("Packaged Z3R Launcher releases require the native app window.", file=sys.stderr)
-        print("Browser fallback is disabled for release packages.", file=sys.stderr)
-        return False
-
-    if not should_open_browser():
-        print(f"Z3R Launcher is running at {url}", file=sys.stderr)
-        return False
-
-    try:
-        open_external_url(url)
-    except LauncherError as error:
-        print(f"Could not open browser automatically: {error}", file=sys.stderr)
-
-    print(f"Z3R Launcher is running at {url}", file=sys.stderr)
-    return True
+def report_browser_disabled(url: str) -> None:
+    print("Z3R Launcher requires the standalone pywebview app window.", file=sys.stderr)
+    print("Opening the launcher in the user's browser is disabled.", file=sys.stderr)
+    print(f"The internal server was prepared at {url} but was not opened externally.", file=sys.stderr)
 
 
 def main() -> None:
@@ -314,23 +332,22 @@ def main() -> None:
     host, port = server.server_address
     url = f"http://{host}:{port}/?token={urllib.parse.quote(token)}"
 
-    if should_use_webview():
-        server_thread = start_server_thread(server)
-        try:
-            open_webview_window(url, state)
-        except Exception as error:
-            print(f"Could not open native app window: {type(error).__name__}: {error}", file=sys.stderr)
-            fallback_opened = open_browser_or_report(url)
-            if not fallback_opened:
-                state.schedule_exit(delay=0)
-            server_thread.join()
-            return
+    if not should_use_webview():
+        report_browser_disabled(url)
+        server.server_close()
+        return
+
+    server_thread = start_server_thread(server)
+    try:
+        open_webview_window(url, state)
+    except Exception as error:
+        print(f"Could not open native app window: {type(error).__name__}: {error}", file=sys.stderr)
+        report_browser_disabled(url)
         state.schedule_exit(delay=0)
         server_thread.join()
         return
-
-    open_browser_or_report(url)
-    serve_until_shutdown(server)
+    state.schedule_exit(delay=0)
+    server_thread.join()
 
 
 if __name__ == "__main__":

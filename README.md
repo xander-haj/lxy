@@ -49,9 +49,8 @@ python3 -m pip install -r requirements.txt
 python3 -m z3r_launcher
 ```
 
-The command starts a localhost server and opens the launcher in a standalone app window.
-Set `Z3R_LAUNCHER_OPEN_BROWSER=1` only when running from source and debugging the old
-default-browser window path.
+The command starts a localhost server behind a standalone pywebview app window. Browser
+fallback is disabled in source and packaged runs.
 
 ## Build Packages
 
@@ -63,8 +62,13 @@ for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-python3 -m pip install --upgrade pyinstaller certifi "pywebview==6.2.1"
-python3 -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0
+sudo apt install gir1.2-webkit2-4.1 libwebkit2gtk-4.1-0 || \
+  sudo apt install gir1.2-webkit2-4.0 libwebkit2gtk-4.0-37
+python3 -m venv --system-site-packages .packaging-venv
+. .packaging-venv/bin/activate
+python -m pip install --upgrade pyinstaller certifi "pywebview==6.2.1"
+python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
 The workflow then assembles an AppDir with:
@@ -77,9 +81,9 @@ The workflow then assembles an AppDir with:
 
 The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage uses pywebview's
 GTK backend and bundles the WebKitGTK helper runtime that the standalone window
-needs, including `WebKitNetworkProcess`, typelibs, GTK modules, and glib schemas.
-It sets `Z3R_LAUNCHER_REQUIRE_WEBVIEW=1`, so startup failures stay visible instead of
-falling back to the default browser.
+needs, including `gi`, `WebKitNetworkProcess`, typelibs, GTK modules, glib schemas,
+and fontconfig data. It sets `Z3R_LAUNCHER_REQUIRE_WEBVIEW=1` and `PYWEBVIEW_GUI=gtk`,
+so startup failures stay visible instead of falling back to Qt or the default browser.
 
 ### macOS DMGs
 
