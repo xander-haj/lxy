@@ -53,14 +53,27 @@ def include_webview_submodule(name):
 
 def reexec_with_linux_packaging_python():
     """Restart PyInstaller with the system-Python venv when an older workflow uses hosted Python."""
-    if not linux or os.environ.get(REEXEC_ENV) or not LINUX_PACKAGING_PYTHON.is_file():
+    if not linux or os.environ.get(REEXEC_ENV):
         return
 
     try:
         current_python = Path(sys.executable).resolve()
-        packaging_python = LINUX_PACKAGING_PYTHON.resolve()
     except OSError:
         current_python = Path(sys.executable)
+
+    if not LINUX_PACKAGING_PYTHON.is_file():
+        if "/hostedtoolcache/" in str(current_python):
+            message = (
+                "Linux AppImage packaging must run from .packaging-venv/bin/python. "
+                "This workflow run is still using hosted-toolcache Python and did not create the system-Python "
+                "packaging venv first; rerun from the updated release workflow."
+            )
+            raise SystemExit(message)
+        return
+
+    try:
+        packaging_python = LINUX_PACKAGING_PYTHON.resolve()
+    except OSError:
         packaging_python = LINUX_PACKAGING_PYTHON
 
     if current_python == packaging_python:

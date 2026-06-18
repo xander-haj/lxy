@@ -94,9 +94,10 @@ macOS releases are built natively on GitHub's Intel and Apple Silicon macOS runn
 - Intel: `Z3R-Launcher-macos-intel.dmg`
 - Apple Silicon: `Z3R-Launcher-macos-apple-silicon.dmg`
 
-The PyInstaller spec creates `dist/Z3R Launcher.app`. The release workflow copies that app bundle
-into a DMG staging folder with an `/Applications` shortcut, then creates the compressed DMG with
-`hdiutil`.
+The PyInstaller spec creates `dist/Z3R Launcher.app`. The release workflow creates a
+temporary read/write HFS+ image, mounts it at a unique runner temp path, copies the app
+and `/Applications` shortcut into that mounted image, detaches it, then converts it to a
+compressed UDZO DMG with `hdiutil`.
 
 ### Flatpak
 
