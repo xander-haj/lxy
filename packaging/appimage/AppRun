@@ -5,20 +5,21 @@ appdir="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
 
 export APPDIR="${appdir}"
 export PATH="${appdir}/usr/bin:${PATH:-}"
+export Z3R_LAUNCHER_REQUIRE_WEBVIEW=1
+export Z3R_LAUNCHER_WEBVIEW_GUI="${Z3R_LAUNCHER_WEBVIEW_GUI:-gtk}"
 
-if [ "${Z3R_LAUNCHER_APPIMAGE_NATIVE_WEBVIEW:-0}" = "1" ]; then
-  export Z3R_LAUNCHER_WEBVIEW_GUI="${Z3R_LAUNCHER_WEBVIEW_GUI:-qt}"
-  export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb;wayland}"
-  export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"
+for libdir in "${appdir}/usr/lib/"*-linux-gnu; do
+  if [ -d "${libdir}" ]; then
+    export LD_LIBRARY_PATH="${libdir}:${appdir}/usr/lib:${LD_LIBRARY_PATH:-}"
+    export GI_TYPELIB_PATH="${libdir}/girepository-1.0:${GI_TYPELIB_PATH:-}"
+    export GDK_PIXBUF_MODULEDIR="${libdir}/gdk-pixbuf-2.0/2.10.0/loaders"
+    export GDK_PIXBUF_MODULE_FILE="${libdir}/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+    break
+  fi
+done
 
-  chromium_flags="${QTWEBENGINE_CHROMIUM_FLAGS:-}"
-  case " ${chromium_flags} " in
-    *" --disable-gpu "*) ;;
-    *) chromium_flags="${chromium_flags:+${chromium_flags} }--disable-gpu --disable-gpu-compositing" ;;
-  esac
-  export QTWEBENGINE_CHROMIUM_FLAGS="${chromium_flags}"
-else
-  export Z3R_LAUNCHER_OPEN_BROWSER="${Z3R_LAUNCHER_OPEN_BROWSER:-1}"
+if [ -d "${appdir}/usr/share/glib-2.0/schemas" ]; then
+  export GSETTINGS_SCHEMA_DIR="${appdir}/usr/share/glib-2.0/schemas"
 fi
 
 exec "${appdir}/usr/bin/z3r-launcher" "$@"

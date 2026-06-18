@@ -220,11 +220,20 @@ def truthy_env(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def should_require_webview() -> bool:
+    # Frozen PyInstaller builds are release packages, so they must stay in the standalone app window path.
+    return bool(getattr(sys, "frozen", False)) or truthy_env("Z3R_LAUNCHER_REQUIRE_WEBVIEW")
+
+
 def should_use_webview() -> bool:
+    if should_require_webview():
+        return True
     return not truthy_env("Z3R_LAUNCHER_OPEN_BROWSER") and not truthy_env("Z3R_LAUNCHER_NO_WEBVIEW")
 
 
 def should_open_browser() -> bool:
+    if should_require_webview():
+        return False
     return not truthy_env("Z3R_LAUNCHER_NO_BROWSER")
 
 
@@ -245,7 +254,10 @@ def import_webview() -> Any:
     try:
         import webview
     except ImportError as error:
-        raise LauncherError("pywebview is not installed. Install pywebview or set Z3R_LAUNCHER_OPEN_BROWSER=1.") from error
+        if should_require_webview():
+            raise LauncherError("pywebview is required for packaged Z3R Launcher releases.") from error
+        message = "pywebview is not installed. Install pywebview or set Z3R_LAUNCHER_OPEN_BROWSER=1."
+        raise LauncherError(message) from error
     return webview
 
 
@@ -273,6 +285,11 @@ def open_webview_window(url: str, state: ServerState) -> None:
 
 
 def open_browser_or_report(url: str) -> bool:
+    if should_require_webview():
+        print("Packaged Z3R Launcher releases require the native app window.", file=sys.stderr)
+        print("Browser fallback is disabled for release packages.", file=sys.stderr)
+        return False
+
     if not should_open_browser():
         print(f"Z3R Launcher is running at {url}", file=sys.stderr)
         return False

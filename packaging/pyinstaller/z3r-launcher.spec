@@ -10,7 +10,7 @@ root = Path.cwd()
 hiddenimports = ["tkinter", "tkinter.filedialog", "certifi"] + collect_submodules("webview")
 
 if sys.platform.startswith("linux"):
-    hiddenimports += collect_submodules("PyQt6")
+    hiddenimports += collect_submodules("gi")
 datas = [
     (str(root / "src"), "src"),
     (str(root / "resources"), "resources"),

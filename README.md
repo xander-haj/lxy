@@ -12,8 +12,8 @@ specifically want to build the launcher from source.
 The launcher is now Python-only: a plain HTML/CSS/JavaScript frontend in `src/` and a
 Python backend in `z3r_launcher/`. The Python process serves the UI on localhost, opens it
 in a native pywebview app window, and exposes the same command surface the frontend uses
-for scanning, setup actions, INI editing, updates, and launching games. If pywebview is
-unavailable, the launcher falls back to the user's normal browser.
+for scanning, setup actions, INI editing, updates, and launching games. Prebuilt release
+packages require the native pywebview window and do not open the user's default browser.
 
 Main features:
 
@@ -50,7 +50,8 @@ python3 -m z3r_launcher
 ```
 
 The command starts a localhost server and opens the launcher in a standalone app window.
-Set `Z3R_LAUNCHER_OPEN_BROWSER=1` to use the old default-browser window for debugging.
+Set `Z3R_LAUNCHER_OPEN_BROWSER=1` only when running from source and debugging the old
+default-browser window path.
 
 ## Build Packages
 
@@ -62,7 +63,7 @@ for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-python3 -m pip install --upgrade pyinstaller certifi "pywebview[qt]==6.2.1"
+python3 -m pip install --upgrade pyinstaller certifi "pywebview==6.2.1"
 python3 -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
@@ -70,14 +71,15 @@ The workflow then assembles an AppDir with:
 
 - `dist/z3r-launcher`
 - `packaging/appimage/AppRun`
+- `packaging/appimage/prepare-gtk-runtime.sh`
 - `packaging/appimage/io.github.xander_haj.Z3RLauncher.desktop`
 - `resources/icons/128x128.png`
 
-The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage wrapper opens
-the launcher in the user's default browser because native QtWebEngine can abort on
-systems without compatible EGL, GLX, or Vulkan. Users who want to try the native
-Qt webview can launch with `Z3R_LAUNCHER_APPIMAGE_NATIVE_WEBVIEW=1`; that path
-defaults Qt to XCB/software rendering and disables QtWebEngine GPU compositing.
+The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage uses pywebview's
+GTK backend and bundles the WebKitGTK helper runtime that the standalone window
+needs, including `WebKitNetworkProcess`, typelibs, GTK modules, and glib schemas.
+It sets `Z3R_LAUNCHER_REQUIRE_WEBVIEW=1`, so startup failures stay visible instead of
+falling back to the default browser.
 
 ### macOS DMGs
 
@@ -96,7 +98,7 @@ The Flatpak manifest is `packaging/flatpak/io.github.xander_haj.Z3RLauncher.yml`
 It installs the Python package, static UI, resources, and bundled-tool metadata into
 `/app/share/z3r-launcher`, installs pywebview into `/app`, and uses the GNOME SDK's
 system PyGObject/WebKitGTK stack instead of replacing it with pip-managed PyGObject.
-It then runs `/usr/bin/python3 -m z3r_launcher`.
+It then runs `/usr/bin/python3 -m z3r_launcher` with the GTK webview backend required.
 
 The Flatpak uses the GNOME SDK runtime so Steam Deck and other Flatpak users can run the
 launcher-managed Git, Python, venv, and pip path inside the sandbox instead of installing
