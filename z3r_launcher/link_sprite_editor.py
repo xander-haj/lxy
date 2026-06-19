@@ -11,7 +11,8 @@ PALETTE_ASSIGNMENT = "override_armor_palette"
 PALETTE_WORD_COUNT = 75
 PALETTE_ROW_LENGTH = 15
 PALETTE_ROW_LABELS = ("Green mail", "Blue mail", "Red mail", "Burning", "Zap")
-MAX_SNES_COLOR = 0x7FFF
+# The asset compiler writes armor palette entries as uint16 values, with SNES color data in the low 15 bits.
+MAX_SNES_PALETTE_WORD = 0xFFFF
 ASSIGNMENT_RE = re.compile(rf"^\s*{PALETTE_ASSIGNMENT}\s*=\s*(.*)$")
 COMMENT_ASSIGNMENT_RE = re.compile(rf"^\s*#\s*{PALETTE_ASSIGNMENT}\s*=\s*(.*)$")
 
@@ -38,7 +39,7 @@ def read_link_sprite_palette(project: Path) -> dict[str, Any]:
 
     Returns:
         A serializable snapshot containing the palette file path, active state, row labels,
-        and the 75 SNES 15-bit color words used by compile_resources.py.
+        and the 75 SNES palette words used by compile_resources.py.
 
     Raises:
         LinkSpritePaletteError: If the sprite sheet file or override block is missing or malformed.
@@ -74,7 +75,7 @@ def write_link_sprite_palette(project: Path, values: list[Any], active: bool) ->
 
     Args:
         project: Root folder of a detected Z3R checkout.
-        values: Flat list of 75 SNES 15-bit color words, as integers or hex strings.
+        values: Flat list of 75 SNES palette words, as integers or hex strings.
         active: True writes an active override list; False writes None plus a commented list.
 
     Returns:
@@ -222,7 +223,7 @@ def remove_full_line_comments(source: str) -> str:
 
 
 def normalize_palette_values(values: list[Any]) -> list[int]:
-    """Validate and normalize a flat palette list into integer SNES color words."""
+    """Validate and normalize a flat palette list into integer SNES palette words."""
 
     if not isinstance(values, list):
         raise LinkSpritePaletteError("Link armor palette must be submitted as a flat list.")
@@ -239,7 +240,7 @@ def normalize_palette_values(values: list[Any]) -> list[int]:
 
 
 def normalize_palette_word(value: Any, index: int) -> int:
-    """Normalize one palette word from an integer or hexadecimal string."""
+    """Normalize one 16-bit palette word from an integer or hexadecimal string."""
 
     if isinstance(value, bool):
         raise LinkSpritePaletteError(f"Palette color {index} must be an integer color word, not a boolean.")
@@ -251,14 +252,14 @@ def normalize_palette_word(value: Any, index: int) -> int:
     else:
         raise LinkSpritePaletteError(f"Palette color {index} must be an integer or hexadecimal string.")
 
-    if word < 0 or word > MAX_SNES_COLOR:
-        raise LinkSpritePaletteError(f"Palette color {index} must be between 0x0000 and 0x7FFF.")
+    if word < 0 or word > MAX_SNES_PALETTE_WORD:
+        raise LinkSpritePaletteError(f"Palette color {index} must be between 0x0000 and 0xFFFF.")
 
     return word
 
 
 def parse_palette_word_string(value: str, index: int) -> int:
-    """Parse a user-provided hexadecimal SNES color word string."""
+    """Parse a user-provided hexadecimal SNES palette word string."""
 
     cleaned = value.strip().lower()
 
