@@ -300,21 +300,11 @@ function toggleCardMenu(card, menuName) {
 
   menu.removeAttribute("hidden");
   button.setAttribute("aria-expanded", "true");
-  positionCardMenu(menu);
-}
-
-function positionCardMenu(menu) {
-  menu.classList.remove("card-action-menu-flipped");
-
-  if (menu.getBoundingClientRect().right > window.innerWidth - 16) {
-    menu.classList.add("card-action-menu-flipped");
-  }
 }
 
 function closeAllCardMenus() {
   for (const menu of document.querySelectorAll(".card-action-menu")) {
     menu.setAttribute("hidden", "");
-    menu.classList.remove("card-action-menu-flipped");
   }
 
   for (const button of document.querySelectorAll(".card-category-button")) {

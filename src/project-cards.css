@@ -66,14 +66,15 @@
 }
 
 .card-category-actions {
-  position: relative;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 12px;
 }
 
 .card-category-menu-wrap {
-  position: static;
+  display: grid;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -84,13 +85,10 @@
 }
 
 .card-action-menu {
-  position: absolute;
-  top: 0;
-  left: calc(100% + 10px);
-  z-index: 40;
   display: grid;
   gap: 8px;
-  min-width: 156px;
+  width: 100%;
+  min-width: 0;
   padding: 10px;
   border: 2px solid var(--gold-dim);
   border-radius: var(--radius);
@@ -104,11 +102,6 @@
 
 .card-action-menu[hidden] {
   display: none;
-}
-
-.card-action-menu-flipped {
-  right: calc(100% + 10px);
-  left: auto;
 }
 
 .card-action-menu .secondary-button {
