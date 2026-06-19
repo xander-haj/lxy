@@ -7,10 +7,14 @@
 import { escapeHtml, labelStatus } from "./shared-utils.js";
 import { mountAspectRatioWidget } from "./card-aspect-ratio.js";
 
+let cardMenuCloserAttached = false;
+
 // Wires up the project-list rendering loop and exposes a `render()` callback the host
 // uses to repaint after any state change. `helpers` carries state, DOM refs, the backend
 // invoker, the logger, and view-switch callbacks so the module stays free of globals.
 export function connectProjectCards(helpers) {
+  ensureCardMenuCloser();
+
   return {
     // Renders every candidate card and the empty-state card when none were discovered.
     render() {
@@ -80,7 +84,10 @@ function buildProjectCard(candidate, helpers) {
   const selectedClass = candidate.path === state.selectedPath ? "selected" : "";
   const playableClass = isPlayable ? "" : "not-playable";
   card.className = `project-card ${selectedClass} ${playableClass}`;
-  card.addEventListener("click", () => selectProject(candidate.path));
+  card.addEventListener("click", () => {
+    closeAllCardMenus();
+    selectProject(candidate.path);
+  });
 
   // Status pill colors derive from the backend status string; unknown statuses fall back to
   // the "warning" gold palette so they remain visible rather than disappearing.
@@ -122,9 +129,8 @@ function disableCardAspectControls(mountElement) {
   });
 }
 
-// Centralizes the card HTML so wireCardButtons can stay focused on event wiring. The
-// card now has FOUR grid rows: status/actions, title-block, card-config-actions
-// (aspect row + feature editors), and card-setup-actions (environment + randomizer).
+// Centralizes the card HTML so wireCardButtons can stay focused on event wiring.
+// Editor navigation is grouped under category flyouts to keep the card footer compact.
 function buildCardMarkup({
   statusClass,
   statusLabel,
@@ -149,10 +155,38 @@ function buildCardMarkup({
     </div>
     <div class="card-config-actions">
       <div class="card-aspect-mount"></div>
-      <div class="card-config-button-row">
-        <button class="secondary-button link-sprite-button" type="button" ${linkSpriteAttributes}>Link Sprite</button>
-        <button class="secondary-button features-button" type="button" ${disabledUntilPlayable}>Features</button>
-        <button class="secondary-button controls-button" type="button" ${disabledUntilPlayable}>Controls</button>
+      <div class="card-category-actions">
+        <div class="card-category-menu-wrap">
+          <button
+            class="secondary-button card-category-button"
+            type="button"
+            data-card-menu="mods"
+            aria-expanded="false"
+            ${linkSpriteAttributes}
+          >Mods</button>
+          <div class="card-action-menu" data-card-menu="mods" hidden>
+            <button class="secondary-button link-sprite-button" type="button" ${linkSpriteAttributes}>
+              Link Sprite
+            </button>
+          </div>
+        </div>
+        <div class="card-category-menu-wrap">
+          <button
+            class="secondary-button card-category-button"
+            type="button"
+            data-card-menu="ini"
+            aria-expanded="false"
+            ${disabledUntilPlayable}
+          >.ini</button>
+          <div class="card-action-menu" data-card-menu="ini" hidden>
+            <button class="secondary-button features-button" type="button" ${disabledUntilPlayable}>
+              Features
+            </button>
+            <button class="secondary-button controls-button" type="button" ${disabledUntilPlayable}>
+              Controls
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="card-setup-actions">
@@ -167,6 +201,8 @@ function buildCardMarkup({
 function wireCardButtons(card, candidate, helpers) {
   const { call, log, refreshScan, selectProject, openEnvironment, openRepoUpdate, showView, launchProject } = helpers;
 
+  wireCategoryMenus(card);
+
   card.querySelector(".environment-button").addEventListener("click", async (event) => {
     event.stopPropagation();
     await openEnvironment(candidate.path);
@@ -180,18 +216,21 @@ function wireCardButtons(card, candidate, helpers) {
 
   card.querySelector(".controls-button").addEventListener("click", async (event) => {
     event.stopPropagation();
+    closeAllCardMenus();
     await selectProject(candidate.path);
     showView("controls");
   });
 
   card.querySelector(".link-sprite-button").addEventListener("click", async (event) => {
     event.stopPropagation();
+    closeAllCardMenus();
     await selectProject(candidate.path);
     showView("link-sprite");
   });
 
   card.querySelector(".features-button").addEventListener("click", async (event) => {
     event.stopPropagation();
+    closeAllCardMenus();
     await selectProject(candidate.path);
     showView("features");
   });
@@ -220,6 +259,66 @@ function wireCardButtons(card, candidate, helpers) {
       event.stopPropagation();
       await openRepoUpdate(candidate);
     });
+  }
+}
+
+function ensureCardMenuCloser() {
+  if (cardMenuCloserAttached) {
+    return;
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element) || !event.target.closest(".card-category-menu-wrap")) {
+      closeAllCardMenus();
+    }
+  });
+  cardMenuCloserAttached = true;
+}
+
+function wireCategoryMenus(card) {
+  for (const button of card.querySelectorAll(".card-category-button")) {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleCardMenu(card, button.dataset.cardMenu);
+    });
+  }
+
+  for (const menu of card.querySelectorAll(".card-action-menu")) {
+    menu.addEventListener("click", (event) => event.stopPropagation());
+  }
+}
+
+function toggleCardMenu(card, menuName) {
+  const menu = card.querySelector(`.card-action-menu[data-card-menu="${menuName}"]`);
+  const button = card.querySelector(`.card-category-button[data-card-menu="${menuName}"]`);
+  const shouldOpen = menu?.hasAttribute("hidden") ?? false;
+  closeAllCardMenus();
+
+  if (!menu || !button || !shouldOpen) {
+    return;
+  }
+
+  menu.removeAttribute("hidden");
+  button.setAttribute("aria-expanded", "true");
+  positionCardMenu(menu);
+}
+
+function positionCardMenu(menu) {
+  menu.classList.remove("card-action-menu-flipped");
+
+  if (menu.getBoundingClientRect().right > window.innerWidth - 16) {
+    menu.classList.add("card-action-menu-flipped");
+  }
+}
+
+function closeAllCardMenus() {
+  for (const menu of document.querySelectorAll(".card-action-menu")) {
+    menu.setAttribute("hidden", "");
+    menu.classList.remove("card-action-menu-flipped");
+  }
+
+  for (const button of document.querySelectorAll(".card-category-button")) {
+    button.setAttribute("aria-expanded", "false");
   }
 }
 
