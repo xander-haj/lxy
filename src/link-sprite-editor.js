@@ -103,12 +103,12 @@ function renderEditor(refs, snapshot, helpers) {
   const statePill = editor.querySelector(".link-sprite-state");
   const status = editor.querySelector(".link-sprite-status");
   const previewStatus = editor.querySelector(".link-sprite-preview-status");
-  const controls = collectEditorControls(editor);
   editor.querySelector(".link-sprite-path").textContent = snapshot.path;
   const preview = createLinkSpritePreview(snapshot, editorState, previewStatus);
   editorState.preview = preview;
   refs.preview = preview;
   appendPaletteRows(editor.querySelector(".link-palette-grid"), snapshot, editorState, status, preview);
+  const controls = collectEditorControls(editor);
   updateActiveState(statePill, editorState.active);
   wireEditorActions(controls, refs, helpers, editorState, status, statePill);
   refs.content.append(editor);
@@ -124,7 +124,7 @@ function collectEditorControls(editor) {
     save: editor.querySelector(".link-sprite-save"),
     disable: editor.querySelector(".link-sprite-disable"),
     build: editor.querySelector(".link-sprite-build"),
-    all: Array.from(editor.querySelectorAll("button, input")),
+    all: Array.from(editor.querySelectorAll("button, input, select")),
     editor,
   };
 }
@@ -278,6 +278,7 @@ async function withBusyControls(controls, editorState, action) {
   } finally {
     editorState.busy = false;
     setControlsDisabled(controls.all, false);
+    editorState.preview?.syncControls?.();
   }
 }
 

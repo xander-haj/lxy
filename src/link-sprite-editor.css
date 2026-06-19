@@ -18,7 +18,7 @@
 
 .link-sprite-content {
   display: grid;
-  max-width: 980px;
+  max-width: 1080px;
   gap: 14px;
 }
 
@@ -95,7 +95,7 @@
 
 .link-palette-row-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 104px;
+  grid-template-columns: minmax(0, 1fr) 176px;
   gap: 12px;
   align-items: stretch;
 }
@@ -108,7 +108,37 @@
 
 .link-sprite-row-preview {
   display: grid;
-  min-height: 96px;
+  min-height: 198px;
+  align-items: start;
+}
+
+.link-sprite-preview-card {
+  display: grid;
+  grid-template-rows: 34px 128px 38px;
+  gap: 8px;
+  width: 100%;
+}
+
+.link-sprite-preview-card button,
+.link-sprite-preview-card select {
+  width: 100%;
+  min-width: 0;
+}
+
+.link-sprite-preview-card select {
+  height: 38px;
+  padding: 0 8px;
+  border: 2px solid var(--gold-dim);
+  border-radius: calc(var(--radius) - 2px);
+  background: rgba(5, 18, 10, 0.78);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.link-sprite-preview-canvas-wrap {
+  display: grid;
+  min-width: 0;
   padding: 8px;
   border: 2px solid var(--gold-dim);
   border-radius: calc(var(--radius) - 2px);
@@ -121,11 +151,11 @@
   place-items: center;
 }
 
-.link-sprite-row-preview canvas {
+.link-sprite-preview-canvas-wrap canvas {
   display: block;
   width: 100%;
-  max-width: 88px;
-  height: 80px;
+  max-width: 112px;
+  height: 108px;
   image-rendering: pixelated;
   object-fit: contain;
 }
@@ -204,10 +234,6 @@
 
   .link-palette-cells {
     grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
-  }
-
-  .link-sprite-row-preview {
-    min-height: 88px;
   }
 
   .link-sprite-actions {
