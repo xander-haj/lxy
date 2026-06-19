@@ -42,6 +42,10 @@ LINUX_WEBVIEW_SUBMODULE_EXCLUDES = [
     "webview.platforms.qt",
 ]
 LINUX_GIREPOSITORY_DEST = "girepository-1.0"
+LINUX_BINARY_BASENAME_PREFIX_EXCLUDES = (
+    "libgcc_s.so",
+    "libstdc++.so",
+)
 
 
 def include_webview_submodule(name):
@@ -150,6 +154,24 @@ def collect_linux_typelib_datas():
     return collected
 
 
+def binary_entry_names(entry):
+    """Return path basenames PyInstaller may use to identify a collected binary."""
+    names = []
+    for value in entry[:2]:
+        if value:
+            names.append(Path(str(value)).name)
+    return names
+
+
+def should_exclude_linux_binary(entry):
+    """Return True for Linux runtime libraries that must come from the host system."""
+    for name in binary_entry_names(entry):
+        for prefix in LINUX_BINARY_BASENAME_PREFIX_EXCLUDES:
+            if name == prefix or name.startswith(f"{prefix}."):
+                return True
+    return False
+
+
 hiddenimports = ["tkinter", "tkinter.filedialog", "certifi"]
 hiddenimports += collect_submodules("webview", filter=include_webview_submodule)
 binaries = []
@@ -192,6 +214,10 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
+if linux:
+    a.binaries = [entry for entry in a.binaries if not should_exclude_linux_binary(entry)]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(

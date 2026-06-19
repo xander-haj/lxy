@@ -67,6 +67,9 @@ should_copy_shared_object() {
     libmvec.so.*|libnsl.so.*|libpthread.so.*|libresolv.so.*|librt.so.*|libthread_db.so.*|libutil.so.*)
       return 1
       ;;
+    libgcc_s.so.*|libstdc++.so.*)
+      return 1
+      ;;
     libEGL.so.*|libEGL_mesa.so.*|libGL.so.*|libGLESv1_CM.so.*|libGLESv2.so.*|libGLX.so.*)
       return 1
       ;;
