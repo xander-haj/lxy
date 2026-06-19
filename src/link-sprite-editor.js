@@ -2,10 +2,15 @@
 // assets/compile_resources.py, then asks the backend to rebuild zelda3_assets.dat
 // with assets/restool.py without extracting fresh ROM assets over the edit.
 
+import { createLinkSpritePreview } from "./link-sprite-preview.js";
+
 const EMPTY_MESSAGE = "Select or clone a Z3R folder before opening Link Sprite.";
 const UNAVAILABLE_MESSAGE = "Link sprite palette editing is unavailable for this project.";
 const HEX_PATTERN = /^[0-9a-f]{1,4}$/i;
-const MAX_SNES_COLOR = 0x7fff;
+// Palette entries are stored as uint16 words so existing sprite_sheets.py values such as FEB9 survive a save.
+const MAX_SNES_PALETTE_WORD = 0xffff;
+// Browser colors use the SNES BGR555 payload; bit 15 is storage-only and ignored by CGRAM color decoding.
+const SNES_COLOR_MASK = 0x7fff;
 
 // Connects the screen to app-wide helpers and exposes a refresh hook for main.js.
 export function connectLinkSpriteEditor(helpers) {
@@ -82,6 +87,7 @@ function renderEditor(refs, snapshot, helpers) {
       <button class="secondary-button link-sprite-reload" type="button">Reload</button>
     </div>
     <p class="path-line link-sprite-path"></p>
+    <div class="link-sprite-preview-slot"></div>
     <div class="link-palette-grid"></div>
     <div class="link-sprite-actions">
       <button class="primary-button link-sprite-save" type="button">Save palette</button>
@@ -95,10 +101,16 @@ function renderEditor(refs, snapshot, helpers) {
   const status = editor.querySelector(".link-sprite-status");
   const controls = collectEditorControls(editor);
   editor.querySelector(".link-sprite-path").textContent = snapshot.path;
+  const preview = createLinkSpritePreview(snapshot, editorState);
+  editorState.preview = preview;
+  editor.querySelector(".link-sprite-preview-slot").append(preview.element);
   appendPaletteRows(editor.querySelector(".link-palette-grid"), snapshot, editorState, status);
   updateActiveState(statePill, editorState.active);
   wireEditorActions(controls, refs, helpers, editorState, status, statePill);
   refs.content.append(editor);
+  preview.load(helpers).catch((error) => {
+    helpers.log(`Could not load Link sprite preview: ${error}`);
+  });
 }
 
 // Finds action buttons after the editor shell has been created.
@@ -181,6 +193,7 @@ function updatePaletteValue(index, value, color, hex, editorState, status, forma
   }
 
   hex.classList.remove("invalid");
+  editorState.preview?.render();
   editorState.dirty = true;
   status.textContent = "Unsaved palette changes.";
   status.className = "link-sprite-status warning";
@@ -288,15 +301,16 @@ function emptyMessage(message) {
   return node;
 }
 
-// Converts a SNES 15-bit BGR word into a browser #RRGGBB value.
+// Converts a SNES palette word into a browser #RRGGBB value.
 function snesToCssHex(word) {
-  const red = snesChannelToByte(word & 0x1f);
-  const green = snesChannelToByte((word >> 5) & 0x1f);
-  const blue = snesChannelToByte((word >> 10) & 0x1f);
+  const colorWord = word & SNES_COLOR_MASK;
+  const red = snesChannelToByte(colorWord & 0x1f);
+  const green = snesChannelToByte((colorWord >> 5) & 0x1f);
+  const blue = snesChannelToByte((colorWord >> 10) & 0x1f);
   return `#${byteToHex(red)}${byteToHex(green)}${byteToHex(blue)}`;
 }
 
-// Converts a browser #RRGGBB color into a SNES 15-bit BGR word.
+// Converts a browser #RRGGBB color into a SNES BGR555 word with the unused high bit clear.
 function cssHexToSnes(value) {
   const red = cssChannelToSnes(value.slice(1, 3));
   const green = cssChannelToSnes(value.slice(3, 5));
@@ -319,12 +333,12 @@ function byteToHex(value) {
   return value.toString(16).padStart(2, "0").toUpperCase();
 }
 
-// Formats a SNES color word as the four-digit hex value users expect from sprite_sheets.py.
+// Formats a SNES palette word as the four-digit hex value users expect from sprite_sheets.py.
 function formatSnesHex(value) {
   return value.toString(16).padStart(4, "0").toUpperCase();
 }
 
-// Parses a 1-4 digit SNES hex value and rejects values outside the 15-bit color range.
+// Parses a 1-4 digit SNES palette word and rejects values outside the uint16 range.
 function parseSnesHex(value) {
   const cleaned = value.trim().replace(/^0x/i, "");
 
@@ -333,5 +347,5 @@ function parseSnesHex(value) {
   }
 
   const parsed = Number.parseInt(cleaned, 16);
-  return parsed <= MAX_SNES_COLOR ? parsed : null;
+  return parsed <= MAX_SNES_PALETTE_WORD ? parsed : null;
 }

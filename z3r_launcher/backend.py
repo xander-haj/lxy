@@ -25,6 +25,10 @@ from .link_sprite_editor import (
     read_link_sprite_palette as read_link_sprite_palette_file,
     write_link_sprite_palette as write_link_sprite_palette_file,
 )
+from .link_sprite_preview import (
+    LinkSpritePreviewError,
+    read_compiled_link_graphics,
+)
 
 
 APP_ID = "io.github.xander_haj.Z3RLauncher"
@@ -594,6 +598,7 @@ class LauncherBackend:
             "store_msu_paths": self.store_msu_paths,
             "install_feature_asset": self.install_feature_asset,
             "read_sprite_preview": self.read_sprite_preview,
+            "read_link_sprite_preview": self.read_link_sprite_preview,
             "read_link_sprite_palette": self.read_link_sprite_palette,
             "save_link_sprite_palette": self.save_link_sprite_palette,
             "build_link_sprite_assets": self.build_link_sprite_assets,
@@ -922,6 +927,42 @@ class LauncherBackend:
             "label": sprite.stem or display_path(relative),
             "pixel_data": list(pixel_data),
             "palette_data": list(palette_data),
+        }
+
+    def read_link_sprite_preview(self, project_path: str) -> dict[str, Any]:
+        """Return Link sprite pixels for palette previews, preferring active LinkGraphics ZSPR."""
+
+        project = Path(project_path)
+        link_graphics = active_link_graphics(project)
+        if link_graphics:
+            return self.read_link_sprite_zspr_preview(project, link_graphics)
+        try:
+            pixel_data = read_compiled_link_graphics(project)
+        except LinkSpritePreviewError as error:
+            raise LauncherError(str(error)) from error
+        return {
+            "label": "Compiled Link graphics",
+            "source": "zelda3_assets.dat",
+            "pixel_data": list(pixel_data),
+        }
+
+    def read_link_sprite_zspr_preview(self, project: Path, sprite_path: str) -> dict[str, Any]:
+        """Read the active LinkGraphics ZSPR file and return only its pixel data for recoloring."""
+
+        relative = safe_relative_path(sprite_path)
+        storage = rom_storage_dir()
+        sprite = next((path for path in (project / relative, storage / relative) if path.is_file()), None)
+        if not sprite:
+            raise LauncherError(f"Active LinkGraphics sprite was not found: {display_path(relative)}")
+        try:
+            bytes_data = sprite.read_bytes()
+        except OSError as error:
+            raise LauncherError(f"Could not read sprite {display_path(sprite)}: {error}") from error
+        pixel_data, _palette_data = parse_zspr_preview(bytes_data)
+        return {
+            "label": sprite.stem or display_path(relative),
+            "source": path_to_slash(relative),
+            "pixel_data": list(pixel_data),
         }
 
     def read_link_sprite_palette(self, project_path: str) -> dict[str, Any]:
@@ -2074,6 +2115,20 @@ def build_ini_snapshot(project_path: str, contents: str) -> dict[str, Any]:
         "keymap_lines": keymap_lines,
         "gamepad_lines": gamepad_lines,
     }
+
+
+def active_link_graphics(project: Path) -> str | None:
+    """Return the active LinkGraphics value from zelda3.ini, ignoring commented examples."""
+
+    path = project / "zelda3.ini"
+    try:
+        snapshot = build_ini_snapshot(str(project), path.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    for line in snapshot["graphics_lines"]:
+        if line["key"].lower() == "linkgraphics" and not line["commented"] and line["value"].strip():
+            return line["value"].strip()
+    return None
 
 
 def parse_section_header(trimmed: str) -> str | None:
