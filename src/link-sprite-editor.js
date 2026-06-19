@@ -29,11 +29,14 @@ function collectScreenElements() {
     title: document.querySelector("#linkSpriteTitle"),
     author: document.querySelector("#linkSpriteAuthor"),
     content: document.querySelector("#linkSpriteContent"),
+    preview: null,
   };
 }
 
 // Loads the selected project's palette snapshot and renders the editor controls.
 async function refreshLinkSpriteEditor(refs, helpers) {
+  refs.preview?.destroy();
+  refs.preview = null;
   refs.content.textContent = "";
 
   if (!helpers.state.selectedPath) {
@@ -87,7 +90,7 @@ function renderEditor(refs, snapshot, helpers) {
       <button class="secondary-button link-sprite-reload" type="button">Reload</button>
     </div>
     <p class="path-line link-sprite-path"></p>
-    <div class="link-sprite-preview-slot"></div>
+    <p class="link-sprite-preview-status">Loading sprite preview...</p>
     <div class="link-palette-grid"></div>
     <div class="link-sprite-actions">
       <button class="primary-button link-sprite-save" type="button">Save palette</button>
@@ -99,12 +102,13 @@ function renderEditor(refs, snapshot, helpers) {
 
   const statePill = editor.querySelector(".link-sprite-state");
   const status = editor.querySelector(".link-sprite-status");
+  const previewStatus = editor.querySelector(".link-sprite-preview-status");
   const controls = collectEditorControls(editor);
   editor.querySelector(".link-sprite-path").textContent = snapshot.path;
-  const preview = createLinkSpritePreview(snapshot, editorState);
+  const preview = createLinkSpritePreview(snapshot, editorState, previewStatus);
   editorState.preview = preview;
-  editor.querySelector(".link-sprite-preview-slot").append(preview.element);
-  appendPaletteRows(editor.querySelector(".link-palette-grid"), snapshot, editorState, status);
+  refs.preview = preview;
+  appendPaletteRows(editor.querySelector(".link-palette-grid"), snapshot, editorState, status, preview);
   updateActiveState(statePill, editorState.active);
   wireEditorActions(controls, refs, helpers, editorState, status, statePill);
   refs.content.append(editor);
@@ -126,18 +130,26 @@ function collectEditorControls(editor) {
 }
 
 // Adds one editable row for each armor/effect palette returned by the backend.
-function appendPaletteRows(container, snapshot, editorState, status) {
+function appendPaletteRows(container, snapshot, editorState, status, preview) {
   for (const row of snapshot.rows) {
     const section = document.createElement("section");
     section.className = "link-palette-row";
-    section.innerHTML = `<h4>${row.label}</h4><div class="link-palette-cells"></div>`;
+    section.innerHTML = `
+      <h4>${row.label}</h4>
+      <div class="link-palette-row-body">
+        <div class="link-palette-cells"></div>
+        <div class="link-sprite-row-preview"></div>
+      </div>
+    `;
     const cells = section.querySelector(".link-palette-cells");
+    const previewSlot = section.querySelector(".link-sprite-row-preview");
 
     for (let offset = 0; offset < snapshot.row_length; offset += 1) {
       const index = row.start + offset;
       cells.append(buildPaletteCell(index, row.label, editorState, status));
     }
 
+    preview.attachRow(row, previewSlot);
     container.append(section);
   }
 }
