@@ -12,6 +12,7 @@ import { connectLinkSpriteEditor } from "./link-sprite-editor.js";
 import { checksReady, updateEnvironmentActions } from "./environment-actions.js";
 import { connectRepoUpdateManager } from "./repo-update-manager.js";
 import { connectLauncherUpdateChecker } from "./launcher-update-checker.js";
+import { connectDevSettings } from "./dev-settings.js";
 import {
   connectScanPathManager,
   loadStoredClonePath,
@@ -86,6 +87,17 @@ const elements = {
   repoUpdateRefreshButton: document.querySelector("#repoUpdateRefreshButton"),
   repoUpdateApplyButton: document.querySelector("#repoUpdateApplyButton"),
   repoUpdateCloseButton: document.querySelector("#repoUpdateCloseButton"),
+  devUnlockDialog: document.querySelector("#devUnlockDialog"),
+  devUnlockInput: document.querySelector("#devUnlockInput"),
+  devSettingsDialog: document.querySelector("#devSettingsDialog"),
+  devSettingsForm: document.querySelector("#devSettingsForm"),
+  devUpdatePathInput: document.querySelector("#devUpdatePathInput"),
+  devEffectiveUpdatePath: document.querySelector("#devEffectiveUpdatePath"),
+  devDefaultUpdatePath: document.querySelector("#devDefaultUpdatePath"),
+  devSettingsStatus: document.querySelector("#devSettingsStatus"),
+  devSettingsSaveButton: document.querySelector("#devSettingsSaveButton"),
+  devSettingsResetButton: document.querySelector("#devSettingsResetButton"),
+  devSettingsCloseButton: document.querySelector("#devSettingsCloseButton"),
   backButton: document.querySelector("#backButton"),
   checkButton: document.querySelector("#checkButton"),
   guideBackButton: document.querySelector("#guideBackButton"),
@@ -430,6 +442,7 @@ const repoUpdateManager = connectRepoUpdateManager(helpers);
 helpers.openRepoUpdate = repoUpdateManager.open;
 connectScanPathManager(helpers);
 connectLauncherUpdateChecker(helpers);
+connectDevSettings(helpers);
 
 elements.refreshButton.addEventListener("click", refreshScan);
 elements.backButton.addEventListener("click", () => showView("builds"));

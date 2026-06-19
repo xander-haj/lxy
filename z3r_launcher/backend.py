@@ -14,6 +14,7 @@ import tempfile
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -40,6 +41,7 @@ Z3R_RELEASES_URL = "https://github.com/xander-haj/Z3R/releases"
 Z3R_BETA_RELEASES_URL = "https://github.com/xander-haj/Z3R-Beta/releases"
 Z3R_RELEASE_API_URL = "https://api.github.com/repos/xander-haj/Z3R/releases/latest"
 Z3R_BETA_RELEASE_API_URL = "https://api.github.com/repos/xander-haj/Z3R-Beta/releases/latest"
+LAUNCHER_RELEASE_API_URL = "https://api.github.com/repos/xander-haj/Z3R-Launcher/releases/latest"
 SPRITES_SOURCE_URL = "https://github.com/snesrev/sprites-gfx.git"
 SHADERS_SOURCE_URL = "https://github.com/snesrev/glsl-shaders"
 MSU_DOWNLOAD_URL = "https://www.zeldix.net/f11-msu1-development"
@@ -47,6 +49,8 @@ MSU_DIR = "msu"
 SPRITES_DIR = "sprites-gfx"
 SHADERS_DIR = "glsl-shaders"
 STORED_ROM_NAME = "zelda3.sfc"
+DEV_SETTINGS_FILE = "dev-settings.json"
+GITHUB_TOKEN_ENV = "Z3R_LAUNCHER_GITHUB_TOKEN"
 FLATPAK_INFO_PATH = Path("/.flatpak-info")
 C_COMPILER_CANDIDATES = ("cc", "gcc", "clang")
 APPIMAGE_ENV_KEYS = ("APPDIR", "APPIMAGE", "ARGV0", "OWD", "LD_LIBRARY_PATH")
@@ -184,6 +188,51 @@ def app_data_dir() -> Path:
     if base:
         return Path(base) / "z3r-launcher"
     return Path.home() / ".local" / "share" / "z3r-launcher"
+
+
+def dev_settings_path() -> Path:
+    return app_data_dir() / DEV_SETTINGS_FILE
+
+
+def read_dev_settings_file() -> dict[str, Any]:
+    path = dev_settings_path()
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return {}
+
+    return settings if isinstance(settings, dict) else {}
+
+
+def write_dev_settings(launcher_update_api_url: str) -> None:
+    path = dev_settings_path()
+
+    if not launcher_update_api_url:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        return
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"launcher_update_api_url": launcher_update_api_url}
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def dev_settings_snapshot() -> dict[str, Any]:
+    override = read_dev_settings_file().get("launcher_update_api_url")
+    override_url = normalize_launcher_update_api_url(override) if isinstance(override, str) else ""
+    effective_url = override_url or LAUNCHER_RELEASE_API_URL
+    return {
+        "launcher_update_api_url": override_url,
+        "default_launcher_update_api_url": LAUNCHER_RELEASE_API_URL,
+        "effective_launcher_update_api_url": effective_url,
+    }
+
+
+def launcher_release_api_url() -> str:
+    return dev_settings_snapshot()["effective_launcher_update_api_url"]
 
 
 def legacy_app_data_dirs() -> list[Path]:
@@ -579,6 +628,8 @@ class LauncherBackend:
             "scan_siblings": self.scan_siblings,
             "app_runtime_info": self.app_runtime_info,
             "launcher_version": self.launcher_version,
+            "read_dev_settings": self.read_dev_settings,
+            "save_dev_settings": self.save_dev_settings,
             "install_launcher_update": self.install_launcher_update,
             "check_environment": self.check_environment,
             "launch_game": self.launch_game,
@@ -628,6 +679,16 @@ class LauncherBackend:
 
     def launcher_version(self) -> str:
         return current_update_version()
+
+    def read_dev_settings(self) -> dict[str, Any]:
+        return dev_settings_snapshot()
+
+    def save_dev_settings(self, launcher_update_api_url: str | None = None) -> dict[str, Any]:
+        url = normalize_launcher_update_api_url(launcher_update_api_url or "")
+        write_dev_settings(url)
+        snapshot = dev_settings_snapshot()
+        snapshot["message"] = "Dev update path saved." if url else "Dev update path reset."
+        return snapshot
 
     def app_runtime_info(self) -> dict[str, Any]:
         default_root = resolve_scan_root(None)
@@ -1640,6 +1701,30 @@ def normalize_github_url(repo_url: str) -> str:
     return trimmed.rstrip("/")
 
 
+def normalize_launcher_update_api_url(value: str) -> str:
+    trimmed = value.strip()
+
+    if not trimmed:
+        return ""
+
+    if trimmed.startswith("https://github.com/"):
+        owner, repo = github_repo_owner_and_name(normalize_github_url(trimmed))
+        return f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+
+    api_match = re.fullmatch(
+        r"https://api\.github\.com/repos/([^/\s]+)/([^/\s]+)/releases/latest",
+        trimmed.rstrip("/"),
+    )
+    if not api_match:
+        raise LauncherError("Enter a GitHub repo URL or a GitHub latest-release API URL.")
+
+    owner, repo = api_match.groups()
+    if not is_safe_segment(owner) or not is_safe_segment(repo):
+        raise LauncherError("The update repository path contains unsupported characters.")
+
+    return f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+
+
 def github_repo_owner_and_name(repo_url: str) -> tuple[str, str]:
     repo_part = repo_url.removeprefix("https://github.com/").split("?", 1)[0].split("#", 1)[0]
     parts = repo_part.split("/")
@@ -2641,7 +2726,7 @@ def is_safe_repo_path(path: str) -> bool:
 
 def fetch_latest_release(update_dir: Path) -> dict[str, Any]:
     release_json = update_dir / "latest-release.json"
-    download_url_to_file("https://api.github.com/repos/xander-haj/Z3R-Launcher/releases/latest", release_json, github_api=True)
+    download_url_to_file(launcher_release_api_url(), release_json, github_api=True)
     try:
         release = json.loads(release_json.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -2713,6 +2798,9 @@ def download_url_to_file(url: str, destination: Path, github_api: bool) -> None:
     headers = {"User-Agent": "Z3R-Launcher-Updater"}
     if github_api:
         headers["Accept"] = "application/vnd.github+json"
+    token = github_update_token(url)
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     errors: list[str] = []
     context = updater_ssl_context() if url.lower().startswith("https://") else None
     for attempt in range(4):
@@ -2726,6 +2814,13 @@ def download_url_to_file(url: str, destination: Path, github_api: bool) -> None:
             errors.append(str(error))
             time.sleep(2 + attempt)
     raise LauncherError(f"Could not download update file: {'; '.join(errors)}")
+
+
+def github_update_token(url: str) -> str:
+    host = urllib.parse.urlparse(url).hostname or ""
+    if host.lower() not in {"api.github.com", "github.com"}:
+        return ""
+    return os.environ.get(GITHUB_TOKEN_ENV, "").strip()
 
 
 def current_update_version() -> str:

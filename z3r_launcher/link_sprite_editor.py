@@ -10,7 +10,7 @@ from typing import Any
 PALETTE_ASSIGNMENT = "override_armor_palette"
 PALETTE_WORD_COUNT = 75
 PALETTE_ROW_LENGTH = 15
-PALETTE_ROW_LABELS = ("Green mail", "Blue mail", "Red mail", "Burning", "Zap")
+PALETTE_ROW_LABELS = ("Green mail", "Blue mail", "Red mail", "Bunny", "Zap")
 # The asset compiler writes armor palette entries as uint16 values, with SNES color data in the low 15 bits.
 MAX_SNES_PALETTE_WORD = 0xFFFF
 ASSIGNMENT_RE = re.compile(rf"^\s*{PALETTE_ASSIGNMENT}\s*=\s*(.*)$")
