@@ -86,16 +86,10 @@ jobs:
           sudo apt-get install -y \
             curl \
             file \
-            gir1.2-gtk-3.0 \
             libfuse2 \
-            python3-gi \
-            python3-gi-cairo \
             python3-venv \
             wget \
             xz-utils
-          if ! sudo apt-get install -y gir1.2-webkit2-4.1 libwebkit2gtk-4.1-0; then
-            sudo apt-get install -y gir1.2-webkit2-4.0 libwebkit2gtk-4.0-37
-          fi
 
       - name: Install Windows packaging dependencies
         if: matrix.family == 'windows'
@@ -118,27 +112,7 @@ jobs:
         shell: bash
         run: |
           /usr/bin/python3 -m venv --system-site-packages .packaging-venv
-          .packaging-venv/bin/python -m pip install --upgrade pip pyinstaller certifi "pywebview==6.2.1"
-
-      - name: Verify Linux GTK packaging Python
-        if: matrix.family == 'linux'
-        shell: bash
-        run: |
-          .packaging-venv/bin/python - <<'PY'
-          import sys
-
-          import gi
-
-          gi.require_version("Gtk", "3.0")
-          gi.require_version("Gdk", "3.0")
-          try:
-              gi.require_version("WebKit2", "4.1")
-              gi.require_version("Soup", "3.0")
-          except ValueError:
-              gi.require_version("WebKit2", "4.0")
-              gi.require_version("Soup", "2.4")
-          print(f"Linux packaging Python: {sys.executable}")
-          PY
+          .packaging-venv/bin/python -m pip install --upgrade pip pyinstaller certifi
 
       - name: Install PyInstaller packaging dependencies
         if: matrix.family != 'linux'
@@ -176,8 +150,6 @@ jobs:
 
           install -Dm755 dist/z3r-launcher "${appdir}/usr/bin/z3r-launcher"
           install -Dm755 packaging/appimage/AppRun "${appdir}/AppRun"
-          chmod +x packaging/appimage/prepare-gtk-runtime.sh
-          packaging/appimage/prepare-gtk-runtime.sh "${appdir}"
           install -Dm644 packaging/appimage/${app_id}.desktop "${appdir}/${app_id}.desktop"
           install -Dm644 packaging/appimage/${app_id}.desktop \
             "${appdir}/usr/share/applications/${app_id}.desktop"

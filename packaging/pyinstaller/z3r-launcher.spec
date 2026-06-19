@@ -4,10 +4,9 @@
 import os
 from pathlib import Path
 import sys
-import sysconfig
 
 import certifi
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_submodules
 
 
 root = Path.cwd()
@@ -16,19 +15,6 @@ REEXEC_ENV = "Z3R_LAUNCHER_PYINSTALLER_REEXEC"
 SPEC_PATH = root / "packaging" / "pyinstaller" / "z3r-launcher.spec"
 LINUX_PACKAGING_PYTHON = root / ".packaging-venv" / "bin" / "python"
 
-LINUX_GTK_HIDDEN_IMPORTS = [
-    "gi",
-    "gi._gi",
-    "gi._option",
-    "gi.repository",
-    "gi.repository.Gdk",
-    "gi.repository.Gio",
-    "gi.repository.GLib",
-    "gi.repository.GObject",
-    "gi.repository.Gtk",
-    "gi.repository.Soup",
-    "gi.repository.WebKit2",
-]
 LINUX_QT_EXCLUDES = [
     "PyQt5",
     "PyQt6",
@@ -37,24 +23,10 @@ LINUX_QT_EXCLUDES = [
     "qtpy",
     "webview.platforms.qt",
 ]
-LINUX_WEBVIEW_SUBMODULE_EXCLUDES = [
-    "webview.platforms.android",
-    "webview.platforms.qt",
-]
-LINUX_GIREPOSITORY_DEST = "girepository-1.0"
 LINUX_BINARY_BASENAME_PREFIX_EXCLUDES = (
     "libgcc_s.so",
     "libstdc++.so",
 )
-
-
-def include_webview_submodule(name):
-    """Return True when a pywebview submodule belongs in the frozen launcher."""
-    if not linux:
-        return True
-    return not any(
-        name == excluded or name.startswith(f"{excluded}.") for excluded in LINUX_WEBVIEW_SUBMODULE_EXCLUDES
-    )
 
 
 def reexec_with_linux_packaging_python():
@@ -92,68 +64,6 @@ def reexec_with_linux_packaging_python():
     )
 
 
-def require_linux_gtk_stack():
-    """Fail the Linux release build unless GTK/WebKitGTK imports match pywebview's GTK backend."""
-    try:
-        import gi
-
-        gi.require_version("Gtk", "3.0")
-        gi.require_version("Gdk", "3.0")
-        try:
-            gi.require_version("WebKit2", "4.1")
-            gi.require_version("Soup", "3.0")
-        except ValueError:
-            gi.require_version("WebKit2", "4.0")
-            gi.require_version("Soup", "2.4")
-    except (ImportError, ValueError) as error:
-        message = (
-            "Linux PyInstaller builds require PyGObject, GTK 3, and WebKitGTK 4.1 or 4.0. "
-            "Run the Linux build with .packaging-venv/bin/python created from /usr/bin/python3."
-        )
-        raise SystemExit(message) from error
-
-
-def linux_girepository_roots():
-    """Return system GIR directories used by Ubuntu's GTK/WebKitGTK packages."""
-    roots = []
-    multiarch = sysconfig.get_config_var("MULTIARCH")
-    if multiarch:
-        roots.append(Path("/usr/lib") / multiarch / LINUX_GIREPOSITORY_DEST)
-    roots.append(Path("/usr/lib") / LINUX_GIREPOSITORY_DEST)
-    return [path for path in roots if path.is_dir()]
-
-
-def collect_linux_typelib_datas():
-    """Bundle Linux GObject typelibs so PyInstaller onefile extraction can resolve WebKit2."""
-    collected = []
-    available = set()
-    seen_names = set()
-
-    for directory in linux_girepository_roots():
-        for typelib in sorted(directory.glob("*.typelib")):
-            available.add(typelib.name)
-            if typelib.name in seen_names:
-                continue
-            seen_names.add(typelib.name)
-            collected.append((str(typelib), LINUX_GIREPOSITORY_DEST))
-
-    required = {"Gtk-3.0.typelib", "Gdk-3.0.typelib"}
-    if "WebKit2-4.1.typelib" in available:
-        required.update({"JavaScriptCore-4.1.typelib", "Soup-3.0.typelib", "WebKit2-4.1.typelib"})
-    elif "WebKit2-4.0.typelib" in available:
-        required.update({"JavaScriptCore-4.0.typelib", "Soup-2.4.typelib", "WebKit2-4.0.typelib"})
-    else:
-        required.add("WebKit2-4.1.typelib or WebKit2-4.0.typelib")
-
-    missing = sorted(name for name in required if name not in available)
-    if missing:
-        roots = ", ".join(str(path) for path in linux_girepository_roots()) or "none"
-        message = f"Linux AppImage packaging is missing required GObject typelibs: {missing}; searched: {roots}"
-        raise SystemExit(message)
-
-    return collected
-
-
 def binary_entry_names(entry):
     """Return path basenames PyInstaller may use to identify a collected binary."""
     names = []
@@ -173,7 +83,8 @@ def should_exclude_linux_binary(entry):
 
 
 hiddenimports = ["tkinter", "tkinter.filedialog", "certifi"]
-hiddenimports += collect_submodules("webview", filter=include_webview_submodule)
+if not linux:
+    hiddenimports += collect_submodules("webview")
 binaries = []
 datas = [
     (str(root / "src"), "src"),
@@ -184,11 +95,6 @@ excludes = []
 
 if linux:
     reexec_with_linux_packaging_python()
-    require_linux_gtk_stack()
-    gi_datas, gi_binaries, gi_hiddenimports = collect_all("gi", on_error="raise")
-    datas += gi_datas + collect_linux_typelib_datas()
-    binaries += gi_binaries
-    hiddenimports += gi_hiddenimports + LINUX_GTK_HIDDEN_IMPORTS
     excludes += LINUX_QT_EXCLUDES
 
 hiddenimports = list(dict.fromkeys(hiddenimports))

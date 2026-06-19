@@ -12,8 +12,9 @@ specifically want to build the launcher from source.
 The launcher is now Python-only: a plain HTML/CSS/JavaScript frontend in `src/` and a
 Python backend in `z3r_launcher/`. The Python process serves the UI on localhost, opens it
 in a native pywebview app window, and exposes the same command surface the frontend uses
-for scanning, setup actions, INI editing, updates, and launching games. Prebuilt release
-packages require the native pywebview window and do not open the user's default browser.
+for scanning, setup actions, INI editing, updates, and launching games. macOS, Windows,
+and Flatpak packages use the native pywebview window. The AppImage opens the same local
+UI in the user's default browser.
 
 Main features:
 
@@ -62,43 +63,25 @@ for AppImage, macOS, and Windows; Flatpak uses the GNOME SDK runtime Python.
 The release workflow builds the AppImage on Ubuntu with PyInstaller and AppImageKit:
 
 ```sh
-sudo apt install curl file libfuse2 python3-gi python3-gi-cairo python3-venv wget xz-utils gir1.2-gtk-3.0
-sudo apt install gir1.2-webkit2-4.1 libwebkit2gtk-4.1-0 || \
-  sudo apt install gir1.2-webkit2-4.0 libwebkit2gtk-4.0-37
+sudo apt install curl file libfuse2 python3-venv wget xz-utils
 /usr/bin/python3 -m venv --system-site-packages .packaging-venv
-.packaging-venv/bin/python -m pip install --upgrade pyinstaller certifi "pywebview==6.2.1"
+.packaging-venv/bin/python -m pip install --upgrade pyinstaller certifi
 .packaging-venv/bin/python -m PyInstaller --clean packaging/pyinstaller/z3r-launcher.spec
 ```
 
-The Linux package job intentionally skips `actions/setup-python`. PyGObject comes from
-Ubuntu packages and must be consumed through the `/usr/bin/python3` packaging venv.
+The Linux AppImage job intentionally skips `actions/setup-python` and uses
+`/usr/bin/python3` for the packaging venv.
 
 The workflow then assembles an AppDir with:
 
 - `dist/z3r-launcher`
 - `packaging/appimage/AppRun`
-- `packaging/appimage/prepare-gtk-runtime.sh`
 - `packaging/appimage/io.github.xander_haj.Z3RLauncher.desktop`
 - `resources/icons/128x128.png`
 
-The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage uses pywebview's
-GTK backend and bundles the WebKitGTK helper runtime that the standalone window
-needs, including `gi`, `WebKitNetworkProcess`, typelibs, GTK modules, glib schemas,
-and fontconfig data. It sets `Z3R_LAUNCHER_REQUIRE_WEBVIEW=1` and `PYWEBVIEW_GUI=gtk`,
-so startup failures stay visible instead of falling back to Qt or the default browser.
-The AppImage bundler fails the build if required `WebKit2`, `JavaScriptCore`, `Soup`,
-`Gtk`, or `Gdk` typelibs are missing from the AppDir.
-
-The AppImage also embeds GTK/WebKitGTK typelibs in the PyInstaller executable so onefile
-extraction can resolve the same `WebKit2` namespace as the outer AppDir. The runtime
-copy step relocates WebKitGTK helper-process paths so `WebKitNetworkProcess` and
-`WebKitWebProcess` are spawned from the AppDir instead of `/usr/lib`. It intentionally
-excludes GLVND, Mesa, Vulkan, DRM, and C++ runtime libraries; those must come from the
-host distribution so rolling systems use their own graphics stack and ABI-compatible
-`libstdc++`. The wrapper also forces WebKitGTK away from its DMABuf, GBM, GL sink,
-and compositing renderers. During the Linux build, pywebview's GTK backend is patched
-to disable WebGL and set WebKitGTK's hardware acceleration policy to `NEVER` before
-PyInstaller freezes it.
+The workflow emits `Z3R-Launcher-linux-x64.AppImage`. The AppImage starts the Python
+launcher server and opens the token-protected local UI in the user's default browser.
+Linux users who want a standalone native window should use the Flatpak package instead.
 
 ### macOS DMGs
 

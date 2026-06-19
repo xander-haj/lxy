@@ -5,65 +5,6 @@ appdir="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
 
 export APPDIR="${appdir}"
 export PATH="${appdir}/usr/bin:${PATH:-}"
-export Z3R_LAUNCHER_REQUIRE_WEBVIEW=1
-export Z3R_LAUNCHER_WEBVIEW_GUI=gtk
-export PYWEBVIEW_GUI=gtk
-export GDK_BACKEND="${GDK_BACKEND:-x11}"
-export WEBKIT_DISABLE_COMPOSITING_MODE="${WEBKIT_DISABLE_COMPOSITING_MODE:-1}"
-export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
-export WEBKIT_DMABUF_RENDERER_DISABLE_GBM="${WEBKIT_DMABUF_RENDERER_DISABLE_GBM:-1}"
-export WEBKIT_FORCE_VBLANK_TIMER="${WEBKIT_FORCE_VBLANK_TIMER:-1}"
-export WEBKIT_GST_DISABLE_GL_SINK="${WEBKIT_GST_DISABLE_GL_SINK:-1}"
-export WEBKIT_GST_DMABUF_SINK_DISABLED="${WEBKIT_GST_DMABUF_SINK_DISABLED:-1}"
-export WEBKIT_SKIA_ENABLE_CPU_RENDERING="${WEBKIT_SKIA_ENABLE_CPU_RENDERING:-1}"
-export WEBKIT_WEBGL_DISABLE_GBM="${WEBKIT_WEBGL_DISABLE_GBM:-1}"
-unset GTK_MODULES
-typelib_path=""
+export Z3R_LAUNCHER_APPIMAGE_OPEN_BROWSER=1
 
-append_typelib_path() {
-  if [ -d "$1" ]; then
-    if [ -n "${typelib_path}" ]; then
-      typelib_path="${typelib_path}:$1"
-    else
-      typelib_path="$1"
-    fi
-  fi
-}
-
-for libdir in "${appdir}/usr/lib/"*-linux-gnu; do
-  if [ -d "${libdir}" ]; then
-    export LD_LIBRARY_PATH="${libdir}:${appdir}/usr/lib:${LD_LIBRARY_PATH:-}"
-    export GDK_PIXBUF_MODULEDIR="${libdir}/gdk-pixbuf-2.0/2.10.0/loaders"
-    export GDK_PIXBUF_MODULE_FILE="${libdir}/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-    append_typelib_path "${libdir}/girepository-1.0"
-    if [ -d "${libdir}/gio/modules" ]; then
-      export GIO_MODULE_DIR="${libdir}/gio/modules"
-    fi
-    if [ -d "${libdir}/webkit2gtk-4.1" ]; then
-      export WEBKIT_EXEC_PATH="${libdir}/webkit2gtk-4.1"
-    elif [ -d "${libdir}/webkit2gtk-4.0" ]; then
-      export WEBKIT_EXEC_PATH="${libdir}/webkit2gtk-4.0"
-    fi
-    break
-  fi
-done
-
-append_typelib_path "${appdir}/usr/lib/girepository-1.0"
-
-if [ -n "${typelib_path}" ]; then
-  export GI_TYPELIB_PATH="${typelib_path}${GI_TYPELIB_PATH:+:${GI_TYPELIB_PATH}}"
-fi
-
-export XDG_DATA_DIRS="${appdir}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
-
-if [ -d "${appdir}/usr/share/glib-2.0/schemas" ]; then
-  export GSETTINGS_SCHEMA_DIR="${appdir}/usr/share/glib-2.0/schemas"
-fi
-
-if [ -f "${appdir}/usr/etc/fonts/fonts.conf" ]; then
-  export FONTCONFIG_PATH="${appdir}/usr/etc/fonts"
-  export FONTCONFIG_FILE="${appdir}/usr/etc/fonts/fonts.conf"
-fi
-
-cd "${appdir}/usr"
 exec "${appdir}/usr/bin/z3r-launcher" "$@"

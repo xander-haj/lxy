@@ -11,17 +11,15 @@ import time
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from typing import Any, Callable
 
-from .backend import LauncherBackend, LauncherError, app_data_dir, static_dir
+from .backend import LauncherBackend, LauncherError, app_data_dir, open_external_url, static_dir
 
 
 HEARTBEAT_TIMEOUT_SECONDS = 45
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
 GTK_WEBVIEW_GUI = "gtk"
 GTK_WEBVIEW_MODULE = "webview.platforms.gtk"
-GIREPOSITORY_DIR = "girepository-1.0"
 
 
 class ServerState:
@@ -224,12 +222,25 @@ def truthy_env(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def should_open_appimage_browser() -> bool:
+    """Return True only for the AppImage wrapper's explicit browser-mode opt-in."""
+    return (
+        sys.platform.startswith("linux")
+        and bool(getattr(sys, "frozen", False))
+        and truthy_env("Z3R_LAUNCHER_APPIMAGE_OPEN_BROWSER")
+    )
+
+
 def should_require_webview() -> bool:
     # Frozen PyInstaller builds are release packages, so they must stay in the standalone app window path.
+    if should_open_appimage_browser():
+        return False
     return bool(getattr(sys, "frozen", False)) or truthy_env("Z3R_LAUNCHER_REQUIRE_WEBVIEW")
 
 
 def should_use_webview() -> bool:
+    if should_open_appimage_browser():
+        return False
     if should_require_webview():
         return True
     return not truthy_env("Z3R_LAUNCHER_NO_WEBVIEW")
@@ -244,46 +255,8 @@ def selected_webview_gui() -> str:
 
 
 def should_require_linux_gtk_webview() -> bool:
-    # Linux release packages rely on GTK/WebKitGTK so they avoid QtWebEngine graphics initialization failures.
+    # Flatpak uses GTK/WebKitGTK from the GNOME runtime for its standalone pywebview window.
     return should_require_webview() and sys.platform.startswith("linux")
-
-
-def prepend_existing_env_paths(name: str, candidates: list[Path]) -> None:
-    """Prepend existing directories to a path-like environment variable without duplicating entries."""
-    existing = [value for value in os.environ.get(name, "").split(os.pathsep) if value]
-    additions: list[str] = []
-    for candidate in candidates:
-        if candidate.is_dir():
-            value = str(candidate)
-            if value not in existing and value not in additions:
-                additions.append(value)
-    if additions:
-        os.environ[name] = os.pathsep.join(additions + existing)
-
-
-def linux_girepository_candidates() -> list[Path]:
-    """Return AppImage and PyInstaller locations that can contain bundled GObject typelibs."""
-    candidates: list[Path] = []
-    meipass = getattr(sys, "_MEIPASS", "")
-    if meipass:
-        base = Path(meipass)
-        candidates.append(base / GIREPOSITORY_DIR)
-        candidates.append(base / "usr" / "lib" / GIREPOSITORY_DIR)
-        candidates.extend((base / "usr" / "lib").glob(f"*/{GIREPOSITORY_DIR}"))
-
-    appdir = os.environ.get("APPDIR", "")
-    if appdir:
-        base = Path(appdir)
-        candidates.append(base / "usr" / "lib" / GIREPOSITORY_DIR)
-        candidates.extend((base / "usr" / "lib").glob(f"*/{GIREPOSITORY_DIR}"))
-
-    return candidates
-
-
-def prepare_linux_gtk_typelib_paths() -> None:
-    """Expose bundled Linux GTK/WebKitGTK typelibs before pywebview imports its GTK backend."""
-    if should_require_linux_gtk_webview():
-        prepend_existing_env_paths("GI_TYPELIB_PATH", linux_girepository_candidates())
 
 
 def require_linux_gtk_backend() -> None:
@@ -294,7 +267,6 @@ def require_linux_gtk_backend() -> None:
     if gui != GTK_WEBVIEW_GUI:
         raise LauncherError("Packaged Linux releases require the GTK pywebview backend; Qt is disabled.")
 
-    prepare_linux_gtk_typelib_paths()
     try:
         importlib.import_module(GTK_WEBVIEW_MODULE)
     except Exception as error:
@@ -319,7 +291,6 @@ def start_server_thread(server: ThreadingHTTPServer) -> threading.Thread:
 
 
 def import_webview() -> Any:
-    prepare_linux_gtk_typelib_paths()
     try:
         import webview
     except ImportError as error:
@@ -362,6 +333,17 @@ def report_browser_disabled(url: str) -> None:
     print(f"The internal server was prepared at {url} but was not opened externally.", file=sys.stderr)
 
 
+def open_appimage_browser(url: str, state: ServerState, server_thread: threading.Thread) -> None:
+    """Open the AppImage's token-protected local UI in the user's default browser."""
+    try:
+        open_external_url(url)
+    except Exception as error:
+        print(f"Could not open default browser: {type(error).__name__}: {error}", file=sys.stderr)
+        print(f"The internal server was prepared at {url} but was not opened externally.", file=sys.stderr)
+        state.schedule_exit(delay=0)
+    server_thread.join()
+
+
 def main() -> None:
     token = secrets.token_urlsafe(32)
     state = ServerState(token)
@@ -372,6 +354,11 @@ def main() -> None:
     start_timeout_monitor(state)
     host, port = server.server_address
     url = f"http://{host}:{port}/?token={urllib.parse.quote(token)}"
+
+    if should_open_appimage_browser():
+        server_thread = start_server_thread(server)
+        open_appimage_browser(url, state, server_thread)
+        return
 
     if not should_use_webview():
         report_browser_disabled(url)
