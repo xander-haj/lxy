@@ -15,6 +15,7 @@ import { connectLauncherUpdateChecker } from "./launcher-update-checker.js";
 import { connectDevSettings } from "./dev-settings.js";
 import {
   connectScanPathManager,
+  loadSavedRepoSettings,
   loadStoredClonePath,
   loadStoredScanPaths,
 } from "./scan-path-manager.js";
@@ -543,5 +544,6 @@ showView(state.activeView);
 await loadSetupGuidance();
 await loadGuideContent();
 await loadRuntimeInfo();
+await loadSavedRepoSettings(helpers);
 await refreshRomStatus();
 refreshScan();

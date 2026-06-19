@@ -50,6 +50,7 @@ SPRITES_DIR = "sprites-gfx"
 SHADERS_DIR = "glsl-shaders"
 STORED_ROM_NAME = "zelda3.sfc"
 DEV_SETTINGS_FILE = "dev-settings.json"
+REPO_SETTINGS_FILE = "repo-settings.json"
 GITHUB_TOKEN_ENV = "Z3R_LAUNCHER_GITHUB_TOKEN"
 FLATPAK_INFO_PATH = Path("/.flatpak-info")
 C_COMPILER_CANDIDATES = ("cc", "gcc", "clang")
@@ -233,6 +234,72 @@ def dev_settings_snapshot() -> dict[str, Any]:
 
 def launcher_release_api_url() -> str:
     return dev_settings_snapshot()["effective_launcher_update_api_url"]
+
+
+def repo_settings_path() -> Path:
+    return app_data_dir() / REPO_SETTINGS_FILE
+
+
+def read_repo_settings_file() -> dict[str, Any]:
+    path = repo_settings_path()
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return {}
+
+    return settings if isinstance(settings, dict) else {}
+
+
+def normalize_repo_scan_paths(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+
+    paths: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        path = item.strip()
+        if not path or "\0" in path or path in seen:
+            continue
+        seen.add(path)
+        paths.append(path)
+    return paths
+
+
+def normalize_repo_clone_path(value: Any, scan_paths: list[str]) -> str:
+    if not isinstance(value, str):
+        return ""
+
+    path = value.strip()
+    if not path or "\0" in path:
+        return ""
+    return path if path in scan_paths else ""
+
+
+def repo_settings_snapshot() -> dict[str, Any]:
+    settings = read_repo_settings_file()
+    scan_paths = normalize_repo_scan_paths(settings.get("scan_paths"))
+    clone_path = normalize_repo_clone_path(settings.get("clone_path"), scan_paths)
+    return {"scan_paths": scan_paths, "clone_path": clone_path or None}
+
+
+def write_repo_settings(scan_paths: list[str], clone_path: str) -> None:
+    path = repo_settings_path()
+
+    if not scan_paths and not clone_path:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        return
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {"scan_paths": scan_paths}
+    if clone_path:
+        payload["clone_path"] = clone_path
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def legacy_app_data_dirs() -> list[Path]:
@@ -628,6 +695,8 @@ class LauncherBackend:
             "scan_siblings": self.scan_siblings,
             "app_runtime_info": self.app_runtime_info,
             "launcher_version": self.launcher_version,
+            "read_repo_settings": self.read_repo_settings,
+            "save_repo_settings": self.save_repo_settings,
             "read_dev_settings": self.read_dev_settings,
             "save_dev_settings": self.save_dev_settings,
             "install_launcher_update": self.install_launcher_update,
@@ -679,6 +748,19 @@ class LauncherBackend:
 
     def launcher_version(self) -> str:
         return current_update_version()
+
+    def read_repo_settings(self) -> dict[str, Any]:
+        return repo_settings_snapshot()
+
+    def save_repo_settings(
+        self,
+        scan_paths: list[str] | None = None,
+        clone_path: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_scan_paths = normalize_repo_scan_paths(scan_paths or [])
+        normalized_clone_path = normalize_repo_clone_path(clone_path, normalized_scan_paths)
+        write_repo_settings(normalized_scan_paths, normalized_clone_path)
+        return repo_settings_snapshot()
 
     def read_dev_settings(self) -> dict[str, Any]:
         return dev_settings_snapshot()
