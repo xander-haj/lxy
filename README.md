@@ -95,8 +95,10 @@ copy step relocates WebKitGTK helper-process paths so `WebKitNetworkProcess` and
 `WebKitWebProcess` are spawned from the AppDir instead of `/usr/lib`. It intentionally
 excludes GLVND, Mesa, Vulkan, DRM, and C++ runtime libraries; those must come from the
 host distribution so rolling systems use their own graphics stack and ABI-compatible
-`libstdc++`. The wrapper also forces WebKitGTK away from its DMABuf Wayland renderer
-with `WEBKIT_DISABLE_DMABUF_RENDERER=1` and `GDK_BACKEND=x11`.
+`libstdc++`. The wrapper also forces WebKitGTK away from its DMABuf, GBM, GL sink,
+and compositing renderers. During the Linux build, pywebview's GTK backend is patched
+to disable WebGL and set WebKitGTK's hardware acceleration policy to `NEVER` before
+PyInstaller freezes it.
 
 ### macOS DMGs
 
