@@ -162,6 +162,10 @@ function renderMsuSection(refs, snapshot, assets, helpers) {
       },
       pathLine.value,
     );
+  } else if (assets.msu.options.length > 0) {
+    appendUnavailable(section, `${ENABLE_MSU_KEY} or ${MSU_PATH_KEY} was not found in zelda3.ini.`);
+  } else {
+    appendUnavailable(section, "No MSU packs found in shared storage or the selected build.");
   }
 
   refs.content.append(section);
@@ -174,7 +178,7 @@ function renderSelectableAssetSection(refs, snapshot, assets, helpers, config) {
   const actionRow = appendActionRow(section);
 
   appendLinkButton(actionRow, "Source", config.sourceUrl, helpers);
-  if (!config.group.available) {
+  if (!config.group.shared_available) {
     appendButton(actionRow, config.cloneLabel, async () => {
       const result = await helpers.call("clone_feature_asset", { assetKind: config.kind });
       helpers.log(result.message);
@@ -182,24 +186,37 @@ function renderSelectableAssetSection(refs, snapshot, assets, helpers, config) {
     });
   }
 
-  if (config.group.options.length > 0 && line) {
+  if (config.group.options.length > 0) {
     const picker = appendOptionPicker(
       section,
       config.group.options,
       config.applyLabel,
       async (value) => {
+        if (!line) {
+          throw new Error(`${config.lineKey} was not found in zelda3.ini.`);
+        }
         const result = await installAsset(config.kind, value, helpers);
         const [assetPath] = splitInstallOutput(result.stdout);
         await saveIniValue(line, assetPath, helpers);
         helpers.log(result.message);
         await refreshFeaturesContent(refs, helpers);
       },
-      line.value,
+      line?.value ?? "",
+      {
+        disabled: !line,
+        disabledTitle: `${config.lineKey} was not found in zelda3.ini.`,
+      },
     );
 
     if (config.kind === "sprites") {
       appendSpritePreview(section, picker, helpers);
     }
+
+    if (!line) {
+      appendUnavailable(section, `${config.lineKey} was not found in zelda3.ini.`);
+    }
+  } else {
+    appendUnavailable(section, `No ${config.title.toLowerCase()} options found.`);
   }
 
   refs.content.append(section);

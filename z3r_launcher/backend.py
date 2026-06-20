@@ -1023,16 +1023,23 @@ class LauncherBackend:
 
     def clone_feature_asset(self, asset_kind: str) -> dict[str, Any]:
         catalog = {
-            "sprites": (SPRITES_DIR, SPRITES_SOURCE_URL, "sprites"),
-            "shaders": (SHADERS_DIR, SHADERS_SOURCE_URL, "shaders"),
+            "sprites": (SPRITES_DIR, SPRITES_SOURCE_URL, "sprites", ["zspr"]),
+            "shaders": (SHADERS_DIR, SHADERS_SOURCE_URL, "shaders", ["glsl", "glslp"]),
         }
         if asset_kind not in catalog:
             raise LauncherError("Unknown cloneable feature asset.")
-        folder, url, label = catalog[asset_kind]
+        folder, url, label, extensions = catalog[asset_kind]
         storage = rom_storage_dir()
         destination = storage / folder
         if destination.is_dir():
-            return action_result(True, f"{label} repository is already available.", display_path(destination))
+            options = list_file_options(destination, folder, extensions, "shared")
+            if options:
+                return action_result(True, f"{label} repository is already available.", display_path(destination))
+            if (destination / ".git").is_dir():
+                return run_command(git_program(), ["pull", "--ff-only"], destination, f"Updated {label}.")
+            raise LauncherError(
+                f"{label} folder exists but contains no supported assets: {display_path(destination)}"
+            )
         storage.mkdir(parents=True, exist_ok=True)
         return run_command(git_program(), ["clone", url, folder], storage, f"Cloned {label}.")
 
