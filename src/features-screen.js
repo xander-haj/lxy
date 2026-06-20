@@ -83,6 +83,7 @@ function renderFeatures(refs, snapshot, assets, helpers) {
     title: "Link sprite",
     kind: "sprites",
     lineKey: LINK_GRAPHICS_KEY,
+    section: "Graphics",
     lines: snapshot.graphics_lines,
     group: assets.sprites,
     sourceUrl: assets.sprites_source_url,
@@ -93,6 +94,7 @@ function renderFeatures(refs, snapshot, assets, helpers) {
     title: "Shader",
     kind: "shaders",
     lineKey: SHADER_KEY,
+    section: "Graphics",
     lines: snapshot.graphics_lines,
     group: assets.shaders,
     sourceUrl: assets.shaders_source_url,
@@ -192,20 +194,16 @@ function renderSelectableAssetSection(refs, snapshot, assets, helpers, config) {
       config.group.options,
       config.applyLabel,
       async (value) => {
-        if (!line) {
-          throw new Error(`${config.lineKey} was not found in zelda3.ini.`);
-        }
         const result = await installAsset(config.kind, value, helpers);
         const [assetPath] = splitInstallOutput(result.stdout);
-        await saveIniValue(line, assetPath, helpers);
+        await saveIniValue(line, assetPath, helpers, {
+          section: config.section,
+          key: config.lineKey,
+        });
         helpers.log(result.message);
         await refreshFeaturesContent(refs, helpers);
       },
       line?.value ?? "",
-      {
-        disabled: !line,
-        disabledTitle: `${config.lineKey} was not found in zelda3.ini.`,
-      },
     );
 
     if (config.kind === "sprites") {
@@ -213,7 +211,7 @@ function renderSelectableAssetSection(refs, snapshot, assets, helpers, config) {
     }
 
     if (!line) {
-      appendUnavailable(section, `${config.lineKey} was not found in zelda3.ini.`);
+      appendUnavailable(section, `${config.lineKey} will be created in zelda3.ini when applied.`);
     }
   } else {
     appendUnavailable(section, `No ${config.title.toLowerCase()} options found.`);
@@ -326,7 +324,21 @@ async function saveCheckboxLine(line, checkbox, state, helpers) {
 }
 
 // Writes only the value for an existing INI line so surrounding whitespace is preserved.
-async function saveIniValue(line, value, helpers) {
+async function saveIniValue(line, value, helpers, fallback = null) {
+  if (!line) {
+    if (!fallback) {
+      throw new Error("No zelda3.ini line was available to update.");
+    }
+
+    await helpers.call("set_zelda_ini_value", {
+      projectPath: helpers.state.selectedPath,
+      section: fallback.section,
+      key: fallback.key,
+      value,
+    });
+    return;
+  }
+
   const rawLine = replaceIniValue(line.raw, line.key, value);
 
   await helpers.call("update_zelda_ini_line", {
